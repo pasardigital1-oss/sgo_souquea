@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { ShoppingCart, Search, User, Menu, X, ChevronDown, LayoutDashboard, ShoppingBag, LogOut, Shield } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import { createClient } from '@/lib/supabase/client'
@@ -24,8 +24,28 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [userRole, setUserRole] = useState<string>('customer')
+  const [searchQuery, setSearchQuery] = useState('')
   const totalItems = useCartStore((state) => state.totalItems)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+
+  // Pre-fill search from URL on catalog page
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q && pathname.includes('/catalog')) {
+      setSearchQuery(q)
+    }
+  }, [searchParams, pathname])
+
+  const handleSearch = () => {
+    const query = searchQuery.trim()
+    if (!query) return
+    router.push(`/${locale}/catalog?q=${encodeURIComponent(query)}`)
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSearch()
+  }
 
   useEffect(() => {
     // Get initial session
@@ -137,12 +157,22 @@ export default function Navbar() {
           {/* Search bar */}
           <div className="flex-1 max-w-2xl mx-auto">
             <div className="relative">
-              <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight-400" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={tc('searchPlaceholder')}
-                className="w-full ps-10 pe-4 py-2.5 rounded-full border border-gray-200 bg-warm-100 text-sm focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 transition-all placeholder:text-midnight-400"
+                className="w-full ps-10 pe-12 py-2.5 rounded-full border border-gray-200 bg-warm-100 text-sm focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 transition-all placeholder:text-midnight-400"
               />
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight-400 pointer-events-none" />
+              <button
+                onClick={handleSearch}
+                className="absolute end-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full gold-gradient hover:opacity-90 transition-opacity"
+                aria-label="Search"
+              >
+                <Search className="w-3.5 h-3.5 text-midnight-900" />
+              </button>
             </div>
           </div>
 

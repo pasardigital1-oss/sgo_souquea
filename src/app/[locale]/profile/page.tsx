@@ -120,6 +120,15 @@ export default function ProfilePage() {
                   <ArrowRight className="w-4 h-4" />
                 </Link>
 
+                <Link href={`/${locale}/profile/garage`}
+                  className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gold-50 transition-colors text-sm text-midnight-700 hover:text-gold-700">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-4 h-4" />
+                    <span>My Garage 🚗</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+
                 {profile?.role === 'vendor' && (
                   <Link href={`/${locale}/vendor/dashboard`}
                     className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gold-50 transition-colors text-sm text-midnight-700 hover:text-gold-700">

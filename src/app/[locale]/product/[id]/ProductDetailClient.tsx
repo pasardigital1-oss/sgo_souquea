@@ -8,6 +8,7 @@ import { ShoppingCart, Shield, Star, ChevronRight, Package, Truck, CheckCircle, 
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import ProductCard from '@/components/shared/ProductCard'
+import ReviewForm from './ReviewForm'
 import { addVAT, formatAED } from '@/lib/utils'
 import type { SparePart } from '@/types'
 
@@ -293,7 +294,7 @@ export default function ProductDetailClient({ product, related, locale }: Props)
             )}
 
             {activeTab === 'reviews' && (
-              <p className="text-midnight-400 text-sm italic">{tp('noReviews')}</p>
+              <ReviewForm partId={product.id} vendorId={product.vendor_id} />
             )}
           </div>
         </div>

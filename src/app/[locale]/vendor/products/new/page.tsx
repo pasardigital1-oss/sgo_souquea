@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
-  ArrowLeft, Package, Save, AlertCircle, CheckCircle, Loader2
+  ArrowLeft, Package, Save, AlertCircle, CheckCircle, Loader2, Camera, X, UploadCloud
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { PartCategory, Emirates, PartType } from '@/types'
@@ -83,6 +84,13 @@ export default function VendorAddProductPage() {
   const [success, setSuccess] = useState(false)
   const [vendorId, setVendorId] = useState<string | null>(null)
 
+  // Photo upload state
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     async function init() {
       const supabase = createClient()
@@ -131,6 +139,82 @@ export default function VendorAddProductPage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  // Handle photo selection
+  const handlePhotoSelect = (files: FileList | null) => {
+    if (!files) return
+    const newFiles = Array.from(files).slice(0, 5 - photoFiles.length)
+    if (newFiles.length === 0) return
+
+    const validFiles = newFiles.filter(f => f.type.startsWith('image/'))
+    if (validFiles.length !== newFiles.length) {
+      setError('Only image files are allowed.')
+    }
+
+    const combined = [...photoFiles, ...validFiles].slice(0, 5)
+    setPhotoFiles(combined)
+
+    // Generate previews
+    combined.forEach((file, i) => {
+      if (photoPreviews[i]) return
+      const reader = new FileReader()
+      reader.onload = e => {
+        setPhotoPreviews(prev => {
+          const next = [...prev]
+          next[i] = e.target?.result as string
+          return next
+        })
+      }
+      reader.readAsDataURL(file)
+    })
+    // Rebuild all previews for combined
+    const newPreviews: string[] = []
+    combined.forEach((file, i) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        newPreviews[i] = e.target?.result as string
+        if (newPreviews.filter(Boolean).length === combined.length) {
+          setPhotoPreviews([...newPreviews])
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotoFiles(prev => prev.filter((_, i) => i !== index))
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Upload photos to Supabase Storage, return public URLs
+  const uploadPhotos = async (partNumber: string, vId: string): Promise<string[]> => {
+    if (photoFiles.length === 0) return []
+    setUploadingPhotos(true)
+    const supabase = createClient()
+    const urls: string[] = []
+
+    for (const file of photoFiles) {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${vId}/${partNumber.replace(/[^a-zA-Z0-9-_]/g, '_')}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(path, file, { upsert: false })
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        continue
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(path)
+
+      urls.push(publicUrl)
+    }
+
+    setUploadingPhotos(false)
+    return urls
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!vendorId) return
@@ -150,6 +234,9 @@ export default function VendorAddProductPage() {
 
     const supabase = createClient()
 
+    // Upload photos first
+    const imageUrls = await uploadPhotos(form.part_number.trim(), vendorId)
+
     // Insert spare_part
     const { data: part, error: partError } = await supabase
       .from('spare_parts')
@@ -166,7 +253,7 @@ export default function VendorAddProductPage() {
         condition: form.condition,
         warranty_months: Number(form.warranty_months) || 0,
         weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
-        images: [],
+        images: imageUrls,
         is_active: form.is_active,
         is_featured: form.is_featured,
       })
@@ -498,6 +585,89 @@ export default function VendorAddProductPage() {
                 </select>
               </div>
             </div>
+          </section>
+
+          {/* Photo Upload */}
+          <section className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6 space-y-5">
+            <h2 className="font-heading font-semibold text-midnight-900 text-lg border-b border-gray-100 pb-3">
+              Product Photos <span className="text-sm font-normal text-midnight-400">(max 5)</span>
+            </h2>
+
+            {/* Drop zone */}
+            <div
+              onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={e => {
+                e.preventDefault()
+                setIsDragOver(false)
+                handlePhotoSelect(e.dataTransfer.files)
+              }}
+              onClick={() => photoFiles.length < 5 && fileInputRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                isDragOver
+                  ? 'border-gold-400 bg-gold-50'
+                  : 'border-gray-200 hover:border-gold-300 hover:bg-warm-50'
+              } ${photoFiles.length >= 5 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={e => handlePhotoSelect(e.target.files)}
+              />
+              <Camera className="w-10 h-10 text-gold-400 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-midnight-700 mb-1">
+                {isDragOver ? 'Drop images here...' : 'Drag & drop photos or click to browse'}
+              </p>
+              <p className="text-xs text-midnight-400">
+                JPG, PNG, WebP · Max 5 photos · {photoFiles.length}/5 selected
+              </p>
+              {photoFiles.length < 5 && (
+                <div className="mt-4 inline-flex items-center gap-2 px-5 py-2 rounded-xl gold-gradient text-midnight-900 font-semibold text-sm">
+                  <UploadCloud className="w-4 h-4" />
+                  Upload Photos
+                </div>
+              )}
+            </div>
+
+            {/* Previews */}
+            {photoPreviews.length > 0 && (
+              <div className="grid grid-cols-5 gap-3">
+                {photoPreviews.map((src, i) => (
+                  <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200">
+                    <Image
+                      src={src}
+                      alt={`Photo ${i + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="20vw"
+                      unoptimized
+                    />
+                    {i === 0 && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gold-500/80 text-white text-[10px] text-center py-0.5 font-bold">
+                        MAIN
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); removePhoto(i) }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {uploadingPhotos && (
+              <div className="flex items-center gap-2 text-sm text-gold-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Uploading photos...
+              </div>
+            )}
           </section>
 
           {/* Visibility */}

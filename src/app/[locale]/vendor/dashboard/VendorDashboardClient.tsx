@@ -235,12 +235,13 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">{tv('price')}</th>
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">{tv('stock')}</th>
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">{tv('status')}</th>
+                    <th className="text-start px-4 py-3 font-semibold text-midnight-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-midnight-400">
+                      <td colSpan={6} className="px-4 py-10 text-center text-midnight-400">
                         No products yet.{' '}
                         <Link href={`/${locale}/vendor/products/new`} className="text-gold-600 font-medium hover:underline">
                           Add your first product →
@@ -270,6 +271,14 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                             }`}>
                               {product.is_active ? tv('active') : tv('inactive')}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/${locale}/vendor/products/${product.id}/edit`}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-gold-200 text-gold-700 hover:bg-gold-50 transition-colors font-medium"
+                            >
+                              Edit
+                            </Link>
                           </td>
                         </tr>
                       )

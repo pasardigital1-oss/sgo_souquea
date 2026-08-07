@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock, LayoutDashboard, LogOut, AlertCircle } from 'lucide-react'
+import {
+  Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock,
+  LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatAED } from '@/lib/utils'
 
 interface Stats {
   totalUsers: number
@@ -22,7 +25,24 @@ interface Props {
   stats: Stats
 }
 
-type Tab = 'overview' | 'pending_vendors' | 'all_vendors'
+type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders'
+
+// ─── Payment gateway definitions ─────────────────────────────────────────────
+const GATEWAYS = [
+  { id: 'stripe',  label: 'Stripe',  icon: '💳', desc: 'Credit / Debit Card',   hasWebhook: true },
+  { id: 'telr',    label: 'Telr',    icon: '🏦', desc: 'UAE Payment Gateway',   hasWebhook: true },
+  { id: 'tabby',   label: 'Tabby',   icon: '📅', desc: 'Pay in 4 — BNPL',       hasWebhook: true },
+  { id: 'tamara',  label: 'Tamara',  icon: '📅', desc: 'Pay in 3 — BNPL',       hasWebhook: true },
+  { id: 'cod',     label: 'Cash on Delivery', icon: '📦', desc: 'No integration needed', hasWebhook: false },
+]
+
+interface GatewaySettings {
+  is_enabled: boolean
+  is_sandbox: boolean
+  public_key: string
+  secret_key: string
+  webhook_secret: string
+}
 
 export default function AdminClient({ locale, pendingVendors, allVendors, stats }: Props) {
   const ta = useTranslations('admin')
@@ -31,6 +51,67 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
   const [vendors, setVendors] = useState(pendingVendors)
   const router = useRouter()
   const supabase = createClient()
+
+  // ── Payment settings state ──────────────────────────────────────────────────
+  const [globalSandbox, setGlobalSandbox] = useState(true)
+  const [gwSettings, setGwSettings] = useState<Record<string, GatewaySettings>>(() => {
+    const init: Record<string, GatewaySettings> = {}
+    GATEWAYS.forEach(g => {
+      init[g.id] = { is_enabled: g.id === 'cod', is_sandbox: true, public_key: '', secret_key: '', webhook_secret: '' }
+    })
+    return init
+  })
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentSaved, setPaymentSaved] = useState(false)
+  const [paymentLoaded, setPaymentLoaded] = useState(false)
+  const [testResults, setTestResults] = useState<Record<string, string>>({})
+
+  // ── Admin orders state ──────────────────────────────────────────────────────
+  const [adminOrders, setAdminOrders] = useState<any[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersLoaded, setOrdersLoaded] = useState(false)
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all')
+
+  // Load payment settings when tab is activated
+  const loadPaymentSettings = useCallback(async () => {
+    if (paymentLoaded) return
+    const { data } = await supabase.from('payment_settings').select('*')
+    if (data && data.length > 0) {
+      const next = { ...gwSettings }
+      let sand = true
+      data.forEach((row: any) => {
+        next[row.gateway] = {
+          is_enabled: row.is_enabled ?? false,
+          is_sandbox: row.is_sandbox ?? true,
+          public_key: row.public_key ?? '',
+          secret_key: row.secret_key ?? '',
+          webhook_secret: row.webhook_secret ?? '',
+        }
+        if (row.is_sandbox === false) sand = false
+      })
+      setGwSettings(next)
+      setGlobalSandbox(sand)
+    }
+    setPaymentLoaded(true)
+  }, [paymentLoaded, supabase, gwSettings])
+
+  // Load admin orders when tab activated
+  const loadAdminOrders = useCallback(async () => {
+    if (ordersLoaded) return
+    setOrdersLoading(true)
+    const { data } = await supabase
+      .from('orders')
+      .select('*, profiles(full_name), vendors(business_name)')
+      .order('created_at', { ascending: false })
+    setAdminOrders(data ?? [])
+    setOrdersLoading(false)
+    setOrdersLoaded(true)
+  }, [ordersLoaded, supabase])
+
+  useEffect(() => {
+    if (activeTab === 'payment') loadPaymentSettings()
+    if (activeTab === 'orders') loadAdminOrders()
+  }, [activeTab, loadPaymentSettings, loadAdminOrders])
 
   const handleVendorAction = async (vendorId: string, action: 'approved' | 'rejected') => {
     setActionLoading(vendorId)
@@ -49,10 +130,46 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     router.push(`/${locale}`)
   }
 
+  // Save payment settings
+  const handleSavePayment = async () => {
+    setPaymentLoading(true)
+    for (const [gateway, cfg] of Object.entries(gwSettings)) {
+      await supabase.from('payment_settings').upsert({
+        gateway,
+        is_enabled: cfg.is_enabled,
+        is_sandbox: globalSandbox,
+        public_key: cfg.public_key || null,
+        secret_key: cfg.secret_key || null,
+        webhook_secret: cfg.webhook_secret || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'gateway' })
+    }
+    setPaymentLoading(false)
+    setPaymentSaved(true)
+    setTimeout(() => setPaymentSaved(false), 3000)
+  }
+
+  const handleTestConnection = (gatewayId: string) => {
+    const cfg = gwSettings[gatewayId]
+    if (gatewayId === 'cod') {
+      setTestResults(p => ({ ...p, [gatewayId]: '✓ COD requires no API keys.' }))
+    } else if (cfg.public_key && cfg.secret_key) {
+      setTestResults(p => ({ ...p, [gatewayId]: '✓ Keys are configured. (Simulation)' }))
+    } else {
+      setTestResults(p => ({ ...p, [gatewayId]: '✗ API keys are missing.' }))
+    }
+  }
+
+  const updateGw = (id: string, field: keyof GatewaySettings, value: string | boolean) => {
+    setGwSettings(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+  }
+
   const navItems = [
     { id: 'overview', icon: LayoutDashboard, label: ta('dashboard') },
     { id: 'pending_vendors', icon: Clock, label: ta('pendingVendors'), badge: vendors.length },
     { id: 'all_vendors', icon: Store, label: ta('vendors') },
+    { id: 'orders', icon: ShoppingBag, label: 'Orders' },
+    { id: 'payment', icon: CreditCard, label: 'Payment' },
   ]
 
   return (
@@ -244,6 +361,213 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ── Orders Overview (Task 10) ─────────────────────────────────────── */}
+        {activeTab === 'orders' && (
+          <div className="space-y-5">
+            {/* GMV */}
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gold-50 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-gold-600" />
+              </div>
+              <div>
+                <p className="text-xs text-midnight-400 uppercase tracking-wide">Total GMV</p>
+                <p className="text-2xl font-heading font-bold text-midnight-900">
+                  {formatAED(adminOrders.reduce((s, o) => s + (o.total_aed ?? 0), 0))}
+                </p>
+              </div>
+              {/* Filter */}
+              <div className="ms-auto flex items-center gap-2">
+                <Filter className="w-4 h-4 text-midnight-400" />
+                <select
+                  value={orderStatusFilter}
+                  onChange={e => setOrderStatusFilter(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-gold-400 bg-gray-50"
+                >
+                  <option value="all">All Status</option>
+                  {['pending','confirmed','processing','shipped','delivered','cancelled'].map(s => (
+                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {ordersLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Order #</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Customer</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Vendor</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Total</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Status</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {adminOrders
+                      .filter(o => orderStatusFilter === 'all' || o.status === orderStatusFilter)
+                      .map((order: any) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-xs font-medium text-midnight-900">{order.order_number}</td>
+                        <td className="px-4 py-3 text-midnight-700">{order.profiles?.full_name ?? '—'}</td>
+                        <td className="px-4 py-3 text-midnight-700">{order.vendors?.business_name ?? '—'}</td>
+                        <td className="px-4 py-3 font-semibold text-midnight-900">{formatAED(order.total_aed)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+                            order.status === 'delivered' ? 'bg-green-50 text-green-700 border-green-200' :
+                            order.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                            order.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                            order.status === 'shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}>{order.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-midnight-400">{formatDate(order.created_at)}</td>
+                      </tr>
+                    ))}
+                    {adminOrders.filter(o => orderStatusFilter === 'all' || o.status === orderStatusFilter).length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-midnight-400">No orders found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Payment Settings (Task 3) ─────────────────────────────────────── */}
+        {activeTab === 'payment' && (
+          <div className="space-y-5 max-w-3xl">
+            {/* Global sandbox toggle */}
+            <div className={`rounded-2xl border p-5 ${globalSandbox ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-300'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-midnight-900">
+                    {globalSandbox ? '🧪 Sandbox / Test Mode' : '⚠️ PRODUCTION MODE — Live transactions'}
+                  </p>
+                  <p className="text-xs text-midnight-500 mt-0.5">
+                    {globalSandbox
+                      ? 'No real charges. Safe for testing integrations.'
+                      : 'Real money will be charged. Ensure all keys are correct!'}
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-xs font-medium text-midnight-600">{globalSandbox ? 'Sandbox' : 'Production'}</span>
+                  <div className="relative" onClick={() => setGlobalSandbox(p => !p)}>
+                    <div className={`w-12 h-6 rounded-full transition-colors ${globalSandbox ? 'bg-blue-500' : 'bg-red-500'}`} />
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${globalSandbox ? '' : 'translate-x-6'}`} />
+                  </div>
+                </label>
+              </div>
+              {!globalSandbox && (
+                <div className="mt-3 p-3 bg-red-100 border border-red-300 rounded-xl text-sm text-red-700 font-medium">
+                  ⚠️ Production mode is active. All enabled payment methods will process real transactions.
+                </div>
+              )}
+            </div>
+
+            {/* Per-gateway settings */}
+            {GATEWAYS.map(gw => {
+              const cfg = gwSettings[gw.id]
+              const isConfigured = gw.id === 'cod' || (!!cfg.public_key && !!cfg.secret_key)
+              return (
+                <div key={gw.id} className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-5 space-y-4">
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{gw.icon}</span>
+                      <div>
+                        <p className="font-semibold text-midnight-900">{gw.label}</p>
+                        <p className="text-xs text-midnight-400">{gw.desc}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ms-2 ${
+                        isConfigured ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'
+                      }`}>
+                        {isConfigured ? '● Connected' : '○ Not Configured'}
+                      </span>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-xs text-midnight-500">{cfg.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                      <div className="relative" onClick={() => updateGw(gw.id, 'is_enabled', !cfg.is_enabled)}>
+                        <div className={`w-10 h-5 rounded-full transition-colors ${cfg.is_enabled ? 'bg-gold-500' : 'bg-gray-200'}`} />
+                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${cfg.is_enabled ? 'translate-x-5' : ''}`} />
+                      </div>
+                    </label>
+                  </div>
+
+                  {gw.id !== 'cod' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-midnight-600">Public Key / API Key</label>
+                        <input
+                          type="text"
+                          value={cfg.public_key}
+                          onChange={e => updateGw(gw.id, 'public_key', e.target.value)}
+                          placeholder="pk_test_..."
+                          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:outline-none focus:border-gold-400 bg-gray-50"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-midnight-600">Secret Key</label>
+                        <input
+                          type="password"
+                          value={cfg.secret_key}
+                          onChange={e => updateGw(gw.id, 'secret_key', e.target.value)}
+                          placeholder="sk_test_..."
+                          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:outline-none focus:border-gold-400 bg-gray-50"
+                        />
+                      </div>
+                      {gw.hasWebhook && (
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-xs font-semibold text-midnight-600">Webhook Secret</label>
+                          <input
+                            type="password"
+                            value={cfg.webhook_secret}
+                            onChange={e => updateGw(gw.id, 'webhook_secret', e.target.value)}
+                            placeholder="whsec_..."
+                            className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:outline-none focus:border-gold-400 bg-gray-50"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => handleTestConnection(gw.id)}
+                      className="text-xs px-4 py-1.5 rounded-xl border border-gray-200 text-midnight-600 hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      Test Connection
+                    </button>
+                    {testResults[gw.id] && (
+                      <span className={`text-xs font-medium ${testResults[gw.id].startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                        {testResults[gw.id]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Save button */}
+            <button
+              onClick={handleSavePayment}
+              disabled={paymentLoading}
+              className="flex items-center gap-2 px-8 py-3 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {paymentLoading
+                ? <span className="w-4 h-4 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                : <CheckCircle className="w-4 h-4" />
+              }
+              {paymentSaved ? 'Settings Saved!' : 'Save Settings'}
+            </button>
           </div>
         )}
       </main>
