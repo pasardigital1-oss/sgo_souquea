@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingCart, Star, Shield, Package } from 'lucide-react'
+import { ShoppingCart, Star, Shield, Package, CheckCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { addVAT, formatAED } from '@/lib/utils'
 import type { SparePart } from '@/types'
+import { useCartStore } from '@/store/cartStore'
 
 interface Props {
   product: SparePart
@@ -15,6 +17,8 @@ interface Props {
 export default function ProductCard({ product, locale }: Props) {
   const tc = useTranslations('common')
   const tp = useTranslations('product')
+  const addItem = useCartStore((state) => state.addItem)
+  const [added, setAdded] = useState(false)
 
   // Get lowest price from inventory
   const prices = product.inventory?.map(i => i.price_aed) || []
@@ -24,6 +28,29 @@ export default function ProductCard({ product, locale }: Props) {
   const { vatAmount, total } = addVAT(lowestPrice)
 
   const imageUrl = product.images?.[0] || null
+
+  // Get best inventory entry (highest stock or lowest price)
+  const bestInventory = product.inventory?.find(i => i.price_aed === lowestPrice) || product.inventory?.[0]
+
+  const handleAddToCart = () => {
+    if (!bestInventory || totalStock === 0) return
+    addItem({
+      inventory_id: bestInventory.id,
+      part_id: product.id,
+      name: product.name,
+      name_ar: product.name_ar ?? undefined,
+      part_number: product.part_number,
+      brand: product.brand ?? undefined,
+      image: imageUrl ?? undefined,
+      price_aed: bestInventory.price_aed,
+      quantity: 1,
+      vendor_id: bestInventory.vendor_id,
+      vendor_name: product.vendors?.business_name ?? '',
+      max_stock: bestInventory.quantity,
+    })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
 
   return (
     <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover luxury-shadow flex flex-col">
@@ -114,11 +141,25 @@ export default function ProductCard({ product, locale }: Props) {
         {/* Buttons */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
+            onClick={handleAddToCart}
             disabled={totalStock === 0}
-            className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gold-300 text-gold-700 text-xs font-semibold hover:bg-gold-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              added
+                ? 'border-green-300 text-green-700 bg-green-50'
+                : 'border-gold-300 text-gold-700 hover:bg-gold-50'
+            }`}
           >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            {tc('addToCart')}
+            {added ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5" />
+                Added!
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="w-3.5 h-3.5" />
+                {tc('addToCart')}
+              </>
+            )}
           </button>
           <Link
             href={`/${locale}/product/${product.id}`}

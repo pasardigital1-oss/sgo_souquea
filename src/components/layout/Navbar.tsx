@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ShoppingCart, Search, User, Menu, X, ChevronDown } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useCartStore } from '@/store/cartStore'
 
 const localeNames = {
   en: 'EN',
@@ -27,6 +28,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const totalItems = useCartStore((state) => state.totalItems)
 
   const switchLocale = (newLocale: string) => {
     // Replace locale segment in URL
@@ -125,9 +127,11 @@ export default function Navbar() {
               className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-gold-50 transition-colors"
             >
               <ShoppingCart className="w-5 h-5 text-midnight-700" />
-              <span className="absolute top-1 end-1 w-4 h-4 bg-gold-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                0
-              </span>
+              {totalItems() > 0 && (
+                <span className="absolute top-1 end-1 w-4 h-4 bg-gold-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {totalItems()}
+                </span>
+              )}
             </Link>
 
             {/* Mobile menu toggle */}

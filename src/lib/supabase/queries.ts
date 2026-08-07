@@ -30,7 +30,12 @@ export async function getProducts(filters: CatalogFilters = {}) {
   }
 
   if (filters.category) {
-    query = query.eq('part_categories.slug', filters.category)
+    const { data: catData } = await supabase
+      .from('part_categories')
+      .select('id')
+      .eq('slug', filters.category)
+      .single()
+    if (catData) query = query.eq('category_id', catData.id)
   }
 
   if (filters.brand) {
@@ -39,6 +44,36 @@ export async function getProducts(filters: CatalogFilters = {}) {
 
   if (filters.part_type) {
     query = query.eq('part_type', filters.part_type)
+  }
+
+  if (filters.make) {
+    const { data: makeData } = await supabase
+      .from('vehicle_makes')
+      .select('id')
+      .ilike('name', `%${filters.make}%`)
+      .limit(1)
+      .single()
+    if (makeData) {
+      const { data: compatData } = await supabase
+        .from('part_compatibility')
+        .select('part_id')
+        .eq('make_id', makeData.id)
+      if (compatData && compatData.length > 0) {
+        const partIds = compatData.map((c: { part_id: string }) => c.part_id)
+        query = query.in('id', partIds)
+      }
+    }
+  }
+
+  if (filters.min_price !== undefined || filters.max_price !== undefined) {
+    let invQuery = supabase.from('inventory').select('part_id')
+    if (filters.min_price !== undefined) invQuery = invQuery.gte('price_aed', filters.min_price)
+    if (filters.max_price !== undefined) invQuery = invQuery.lte('price_aed', filters.max_price)
+    const { data: invData } = await invQuery
+    if (invData && invData.length > 0) {
+      const partIds = invData.map((i: { part_id: string }) => i.part_id)
+      query = query.in('id', partIds)
+    }
   }
 
   // Sort
@@ -94,6 +129,7 @@ export async function getFeaturedProducts(limit = 8) {
     .select(`
       *,
       vendors(id, business_name, rating),
+      part_categories(id, name, name_ar, slug),
       inventory(id, price_aed, quantity, emirate)
     `)
     .eq('is_active', true)
