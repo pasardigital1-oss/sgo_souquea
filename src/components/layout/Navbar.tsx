@@ -206,6 +206,13 @@ export default function Navbar() {
                       <ShoppingBag className="w-4 h-4 text-gold-500" />
                       {t('orders')}
                     </Link>
+                    {userRole === 'customer' && (
+                      <Link href={`/${locale}/profile/garage`} onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                        <span className="text-gold-500">🚗</span>
+                        My Garage
+                      </Link>
+                    )}
                     {userRole === 'admin' && (
                       <Link href={`/${locale}/admin`} onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
@@ -286,8 +293,11 @@ export default function Navbar() {
             { href: `/${locale}`, label: t('home') },
             { href: `/${locale}/catalog`, label: t('catalog') },
             { href: `/${locale}/orders`, label: t('orders') },
-            { href: `/${locale}/auth/login`, label: t('login') },
-            { href: `/${locale}/auth/register`, label: t('register') },
+            { href: `/${locale}/profile/garage`, label: '🚗 My Garage' },
+            ...(user ? [] : [
+              { href: `/${locale}/auth/login`, label: t('login') },
+              { href: `/${locale}/auth/register`, label: t('register') },
+            ]),
           ].map((item) => (
             <Link
               key={item.href}
