@@ -1,0 +1,27 @@
+{
+  "name": "SGO-SouqUAE",
+  "short_name": "SouqUAE",
+  "description": "Premium Auto Parts Marketplace UAE",
+  "start_url": "/en",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#c9a84c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["shopping", "automotive"],
+  "lang": "en",
+  "dir": "ltr"
+}
