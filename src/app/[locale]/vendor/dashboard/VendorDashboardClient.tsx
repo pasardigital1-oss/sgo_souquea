@@ -36,10 +36,14 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
   const router = useRouter()
   const supabase = createClient()
 
-  const totalRevenue = orders
+  // Local orders state so we can update status without full page reload
+  const [orderList, setOrderList] = useState<any[]>(orders as any[])
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
+
+  const totalRevenue = orderList
     .filter(o => o.status === 'delivered')
     .reduce((sum, o) => sum + o.total_aed, 0)
-  const pendingOrders = orders.filter(o => o.status === 'pending').length
+  const pendingOrders = orderList.filter(o => o.status === 'pending').length
   const activeProducts = products.filter((p: any) => p.is_active).length
   const lowStockProducts = products.filter((p: any) =>
     p.inventory?.some((i: any) => i.quantity <= i.low_stock_alert)
@@ -48,6 +52,49 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push(`/${locale}`)
+  }
+
+  // Order status progression
+  const NEXT_STATUS: Record<string, string> = {
+    pending: 'confirmed',
+    confirmed: 'processing',
+    processing: 'shipped',
+    shipped: 'delivered',
+  }
+  const STATUS_ACTIONS: Record<string, string> = {
+    pending: 'Confirm Order',
+    confirmed: 'Mark Processing',
+    processing: 'Mark Shipped',
+    shipped: 'Mark Delivered',
+  }
+
+  const handleUpdateOrderStatus = async (orderId: string, currentStatus: string) => {
+    const nextStatus = NEXT_STATUS[currentStatus]
+    if (!nextStatus) return
+    setUpdatingOrderId(orderId)
+    const now = new Date().toISOString()
+    const extra: Record<string, string> = {}
+    if (nextStatus === 'confirmed') extra.confirmed_at = now
+    if (nextStatus === 'shipped') extra.shipped_at = now
+    if (nextStatus === 'delivered') extra.delivered_at = now
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: nextStatus, ...extra })
+      .eq('id', orderId)
+
+    if (!error) {
+      setOrderList(prev =>
+        prev.map(o => o.id === orderId ? { ...o, status: nextStatus, ...extra } : o)
+      )
+      // Fire notify
+      fetch('/api/notify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, type: nextStatus === 'confirmed' ? 'confirmed' : nextStatus === 'shipped' ? 'shipped' : 'delivered' }),
+      }).catch(console.error)
+    }
+    setUpdatingOrderId(null)
   }
 
   // Vendor pending approval
@@ -167,7 +214,7 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: tv('totalSales'), value: formatAED(totalRevenue), icon: TrendingUp, color: 'text-gold-600 bg-gold-50' },
-                  { label: tv('totalOrders'), value: orders.length, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50' },
+                  { label: tv('totalOrders'), value: orderList.length, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50' },
                   { label: tv('activeProducts'), value: activeProducts, icon: Package, color: 'text-green-600 bg-green-50' },
                   { label: tv('pendingOrders'), value: pendingOrders, icon: Clock, color: 'text-orange-600 bg-orange-50' },
                 ].map(stat => {
@@ -200,11 +247,11 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                 <div className="p-5 border-b border-gray-50">
                   <h2 className="font-heading font-semibold text-midnight-900">Recent Orders</h2>
                 </div>
-                {orders.length === 0 ? (
+                {orderList.length === 0 ? (
                   <div className="p-10 text-center text-midnight-400 text-sm">No orders yet</div>
                 ) : (
                   <div className="divide-y divide-gray-50">
-                    {orders.slice(0, 5).map((order: any) => (
+                    {orderList.slice(0, 5).map((order: any) => (
                       <div key={order.id} className="p-4 flex items-center justify-between gap-4">
                         <div>
                           <p className="font-semibold text-midnight-900 text-sm">{order.order_number}</p>
@@ -299,24 +346,48 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">Date</th>
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">Status</th>
                     <th className="text-start px-4 py-3 font-semibold text-midnight-600">Total</th>
+                    <th className="text-start px-4 py-3 font-semibold text-midnight-600">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {orders.length === 0 ? (
-                    <tr><td colSpan={4} className="px-4 py-10 text-center text-midnight-400">No orders yet</td></tr>
+                  {orderList.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-10 text-center text-midnight-400">No orders yet</td></tr>
                   ) : (
-                    orders.map((order: any) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-mono font-medium text-midnight-900">{order.order_number}</td>
-                        <td className="px-4 py-3 text-midnight-500">{new Date(order.created_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[order.status]}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-midnight-900">{formatAED(order.total_aed)}</td>
-                      </tr>
-                    ))
+                    orderList.map((order: any) => {
+                      const nextAction = STATUS_ACTIONS[order.status]
+                      const isUpdating = updatingOrderId === order.id
+                      return (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-mono font-medium text-midnight-900">{order.order_number}</td>
+                          <td className="px-4 py-3 text-midnight-500">{new Date(order.created_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[order.status] || ''}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-midnight-900">{formatAED(order.total_aed)}</td>
+                          <td className="px-4 py-3">
+                            {nextAction ? (
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, order.status)}
+                                disabled={isUpdating}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gold-gradient text-midnight-900 font-bold text-xs hover:opacity-90 disabled:opacity-60 transition-opacity"
+                              >
+                                {isUpdating
+                                  ? <span className="w-3 h-3 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                                  : <CheckCircle className="w-3 h-3" />
+                                }
+                                {nextAction}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-midnight-400 italic">
+                                {order.status === 'delivered' ? 'Completed' : order.status === 'cancelled' ? 'Cancelled' : '—'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>

@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { ShoppingBag, CheckCircle, Package, Truck, XCircle, Clock } from 'lucide-react'
+import { ShoppingBag, CheckCircle, Package, Truck, XCircle, Clock, Download, Loader2 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { formatAED, formatDate } from '@/lib/utils'
@@ -26,6 +27,28 @@ const STATUS_CONFIG: Record<string, { color: string; icon: typeof Clock; label: 
 
 export default function OrdersClient({ orders, locale, showSuccess }: Props) {
   const t = useTranslations('orders')
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  const handleDownloadInvoice = async (orderId: string, orderNumber: string) => {
+    setDownloadingId(orderId)
+    try {
+      const res = await fetch(`/api/invoice/${orderId}`)
+      if (!res.ok) throw new Error('Failed to generate invoice')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `SGO-Invoice-${orderNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Invoice download error:', err)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-warm-50">
@@ -108,7 +131,7 @@ export default function OrdersClient({ orders, locale, showSuccess }: Props) {
                       )}
                     </div>
 
-                    {/* Vendor + breakdown */}
+                    {/* Vendor + breakdown + actions */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-50">
                       <p className="text-xs text-midnight-400">
                         Vendor: <span className="font-medium text-midnight-700">{order.vendors?.business_name}</span>
@@ -118,6 +141,20 @@ export default function OrdersClient({ orders, locale, showSuccess }: Props) {
                         <span>•</span>
                         <span>VAT: {formatAED(order.vat_amount_aed)}</span>
                       </div>
+                    </div>
+
+                    {/* Download invoice button */}
+                    <div className="pt-3 mt-1">
+                      <button
+                        onClick={() => handleDownloadInvoice(order.id, order.order_number)}
+                        disabled={downloadingId === order.id}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gold-200 text-gold-700 hover:bg-gold-50 transition-colors text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {downloadingId === order.id
+                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...</>
+                          : <><Download className="w-3.5 h-3.5" /> {t('downloadInvoice')}</>
+                        }
+                      </button>
                     </div>
                   </div>
                 </div>
