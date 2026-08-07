@@ -12,21 +12,24 @@ export default async function AdminPage({ params }: Props) {
 
   if (!user) redirect(`/${locale}/auth/login`)
 
-  // Check admin role
+  // Check admin role — from profiles OR from user metadata
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') redirect(`/${locale}`)
+  const isAdmin = profile?.role === 'admin' || 
+                  user.user_metadata?.role === 'admin' ||
+                  user.email === 'pasardigital1@gmail.com' // temporary bootstrap
+
+  if (!isAdmin) redirect(`/${locale}`)
 
   const [pendingVendors, allVendors] = await Promise.all([
     getPendingVendors(),
     getAllVendors(),
   ])
 
-  // Get basic stats
   const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
   const { count: totalOrders } = await supabase.from('orders').select('*', { count: 'exact', head: true })
   const { count: totalProducts } = await supabase.from('spare_parts').select('*', { count: 'exact', head: true })
