@@ -130,7 +130,7 @@ export async function getFeaturedProducts(limit = 8) {
       *,
       vendors(id, business_name, rating),
       part_categories(id, name, name_ar, slug),
-      inventory(id, price_aed, quantity, emirate)
+      inventory(id, price_aed, quantity, emirate, vendor_id)
     `)
     .eq('is_active', true)
     .eq('is_featured', true)
