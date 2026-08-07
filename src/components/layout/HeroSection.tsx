@@ -93,6 +93,15 @@ export default function HeroSection({ makes }: Props) {
                 </div>
               ))}
             </div>
+
+            {/* RFQ CTA */}
+            <Link
+              href={`/${locale}/rfq`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gold-500/40 text-gold-400 text-sm font-semibold hover:bg-gold-500/10 transition-colors w-fit"
+            >
+              🔍 Can&apos;t find your part? Request a Quote
+              <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
 
           {/* Right: Shop by vehicle */}

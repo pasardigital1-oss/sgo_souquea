@@ -283,6 +283,9 @@ export default function Navbar() {
           <Link href={`/${locale}/catalog?category=suspension`} className="text-sm text-midnight-600 hover:text-gold-600 transition-colors font-medium">
             Suspension
           </Link>
+          <Link href={`/${locale}/rfq`} className="ms-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold-400 text-gold-700 text-xs font-bold hover:bg-gold-50 transition-colors">
+            🔍 Request a Part
+          </Link>
         </nav>
       </div>
 
@@ -292,6 +295,7 @@ export default function Navbar() {
           {[
             { href: `/${locale}`, label: t('home') },
             { href: `/${locale}/catalog`, label: t('catalog') },
+            { href: `/${locale}/rfq`, label: '🔍 Request a Part' },
             { href: `/${locale}/orders`, label: t('orders') },
             { href: `/${locale}/profile/garage`, label: '🚗 My Garage' },
             ...(user ? [] : [
