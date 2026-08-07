@@ -39,7 +39,7 @@ export default function OrdersClient({ orders, locale, showSuccess }: Props) {
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
             <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
             <div>
-              <p className="font-semibold text-green-800 text-sm">{t('orderPlaced')}</p>
+              <p className="font-semibold text-green-800 text-sm">Your order has been placed successfully!</p>
               <p className="text-xs text-green-600 mt-0.5">The vendor will confirm your order shortly.</p>
             </div>
           </div>
