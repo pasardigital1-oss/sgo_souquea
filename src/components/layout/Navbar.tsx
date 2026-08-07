@@ -169,7 +169,7 @@ export default function Navbar() {
                     <Link href={getDashboardUrl()} onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
                       <LayoutDashboard className="w-4 h-4 text-gold-500" />
-                      {userRole === 'admin' ? 'Admin Panel' : userRole === 'vendor' ? 'Dashboard' : t('orders')}
+                      {userRole === 'admin' ? 'Admin Panel' : userRole === 'vendor' ? t('dashboard') : t('profile')}
                     </Link>
                     <Link href={`/${locale}/orders`} onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
