@@ -1,24 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
-import { ShoppingCart, Search, User, Menu, X, ChevronDown } from 'lucide-react'
+import { ShoppingCart, Search, User, Menu, X, ChevronDown, LayoutDashboard, ShoppingBag, LogOut, Shield } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
+import { createClient } from '@/lib/supabase/client'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
-const localeNames = {
-  en: 'EN',
-  ar: 'عر',
-  id: 'ID',
-}
-
-const localeFullNames = {
-  en: 'English',
-  ar: 'العربية',
-  id: 'Indonesia',
-}
+const localeNames = { en: 'EN', ar: 'عر', id: 'ID' }
+const localeFullNames = { en: 'English', ar: 'العربية', id: 'Indonesia' }
 
 export default function Navbar() {
   const t = useTranslations('nav')
@@ -28,14 +21,55 @@ export default function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [userRole, setUserRole] = useState<string>('customer')
   const totalItems = useCartStore((state) => state.totalItems)
+  const supabase = createClient()
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      if (user) {
+        supabase.from('profiles').select('role').eq('id', user.id).single()
+          .then(({ data }) => { if (data) setUserRole(data.role) })
+      }
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        supabase.from('profiles').select('role').eq('id', session.user.id).single()
+          .then(({ data }) => { if (data) setUserRole(data.role) })
+      } else {
+        setUserRole('customer')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setUserMenuOpen(false)
+    router.push(`/${locale}`)
+    router.refresh()
+  }
 
   const switchLocale = (newLocale: string) => {
-    // Replace locale segment in URL
     const segments = pathname.split('/')
     segments[1] = newLocale
     router.push(segments.join('/'))
     setLangOpen(false)
+  }
+
+  const getDashboardUrl = () => {
+    if (userRole === 'admin') return `/${locale}/admin`
+    if (userRole === 'vendor') return `/${locale}/vendor/dashboard`
+    return `/${locale}/orders`
   }
 
   return (
@@ -114,13 +148,58 @@ export default function Navbar() {
 
           {/* Right actions */}
           <div className="flex items-center gap-1 shrink-0">
-            <Link
-              href={`/${locale}/auth/login`}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-midnight-700 hover:bg-gold-50 hover:text-gold-700 transition-colors"
-            >
-              <User className="w-4 h-4" />
-              <span>{t('login')}</span>
-            </Link>
+            {user ? (
+              <div className="relative hidden sm:block">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-midnight-700 hover:bg-gold-50 hover:text-gold-700 transition-colors"
+                >
+                  <div className="w-6 h-6 rounded-full gold-gradient flex items-center justify-center text-white text-xs font-bold">
+                    {user.email?.[0].toUpperCase()}
+                  </div>
+                  <span className="max-w-[100px] truncate">{user.email?.split('@')[0]}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute top-full end-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden min-w-[180px] z-50">
+                    <div className="px-4 py-3 border-b border-gray-50">
+                      <p className="text-xs font-semibold text-midnight-800 truncate">{user.email}</p>
+                      <p className="text-xs text-midnight-400 capitalize mt-0.5">{userRole}</p>
+                    </div>
+                    <Link href={getDashboardUrl()} onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                      <LayoutDashboard className="w-4 h-4 text-gold-500" />
+                      {userRole === 'admin' ? 'Admin Panel' : userRole === 'vendor' ? 'Dashboard' : t('orders')}
+                    </Link>
+                    <Link href={`/${locale}/orders`} onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                      <ShoppingBag className="w-4 h-4 text-gold-500" />
+                      {t('orders')}
+                    </Link>
+                    {userRole === 'admin' && (
+                      <Link href={`/${locale}/admin`} onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                        <Shield className="w-4 h-4 text-gold-500" />
+                        Admin Panel
+                      </Link>
+                    )}
+                    <button onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors border-t border-gray-50">
+                      <LogOut className="w-4 h-4" />
+                      {t('logout')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href={`/${locale}/auth/login`}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-midnight-700 hover:bg-gold-50 hover:text-gold-700 transition-colors"
+              >
+                <User className="w-4 h-4" />
+                <span>{t('login')}</span>
+              </Link>
+            )}
 
             <Link
               href={`/${locale}/cart`}
