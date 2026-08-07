@@ -69,7 +69,7 @@ export default function Navbar() {
   const getDashboardUrl = () => {
     if (userRole === 'admin') return `/${locale}/admin`
     if (userRole === 'vendor') return `/${locale}/vendor/dashboard`
-    return `/${locale}/orders`
+    return `/${locale}/profile`
   }
 
   return (
