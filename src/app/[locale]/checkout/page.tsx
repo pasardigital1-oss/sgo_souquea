@@ -130,7 +130,6 @@ export default function CheckoutPage() {
         total_aed: total,
         shipping_address: shippingAddress,
         notes: form.notes || null,
-        payment_method: selectedPayment,
       }).select().single()
 
       if (orderError || !order) {
