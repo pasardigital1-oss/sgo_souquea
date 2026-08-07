@@ -4,17 +4,13 @@ import { useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search, Car, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import type { VehicleMake } from '@/types'
 
-const vehicleMakes = [
-  { id: 1, name: 'Toyota', logo: '🚗', popular: true },
-  { id: 2, name: 'Nissan', logo: '🚙', popular: true },
-  { id: 3, name: 'Mitsubishi', logo: '🚐', popular: true },
-  { id: 4, name: 'Honda', logo: '🏎️', popular: true },
-  { id: 5, name: 'Kia', logo: '🚕', popular: true },
-  { id: 6, name: 'Hyundai', logo: '🚖', popular: true },
-]
+interface Props {
+  makes: VehicleMake[]
+}
 
-export default function HeroSection() {
+export default function HeroSection({ makes }: Props) {
   const t = useTranslations('home')
   const tc = useTranslations('common')
   const locale = useLocale()
@@ -108,13 +104,15 @@ export default function HeroSection() {
 
             {/* Vehicle make grid */}
             <div className="grid grid-cols-3 gap-3 mb-5">
-              {vehicleMakes.map((make) => (
+              {makes.slice(0, 6).map((make) => (
                 <Link
                   key={make.id}
                   href={`/${locale}/catalog?make=${make.name.toLowerCase()}`}
                   className="flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 hover:border-gold-500/50 hover:bg-white/5 transition-all group"
                 >
-                  <span className="text-2xl">{make.logo}</span>
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-sm">
+                    {make.name[0]}
+                  </div>
                   <span className="text-xs text-midnight-300 group-hover:text-gold-400 transition-colors font-medium">
                     {make.name}
                   </span>
@@ -128,7 +126,7 @@ export default function HeroSection() {
               <div className="grid grid-cols-3 gap-2">
                 <select className="col-span-1 px-2 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:border-gold-400">
                   <option value="">Make</option>
-                  {vehicleMakes.map(m => (
+                  {makes.map(m => (
                     <option key={m.id} value={m.name.toLowerCase()} className="text-black">{m.name}</option>
                   ))}
                 </select>

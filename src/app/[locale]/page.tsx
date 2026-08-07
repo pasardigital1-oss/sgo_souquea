@@ -1,4 +1,3 @@
-import { useTranslations } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import type { Metadata } from 'next'
 import Navbar from '@/components/layout/Navbar'
@@ -8,6 +7,7 @@ import CategoriesSection from '@/components/layout/CategoriesSection'
 import FeaturedProducts from '@/components/layout/FeaturedProducts'
 import WhyChooseUs from '@/components/layout/WhyChooseUs'
 import Footer from '@/components/layout/Footer'
+import { getFeaturedProducts, getVehicleMakes, getCategories } from '@/lib/supabase/queries'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -22,14 +22,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default function HomePage() {
+export default async function HomePage({ params }: Props) {
+  const { locale } = await params
+
+  // Fetch real data from Supabase in parallel
+  const [featuredProducts, makes, categories] = await Promise.all([
+    getFeaturedProducts(8),
+    getVehicleMakes(true),
+    getCategories(true),
+  ])
+
   return (
     <main className="min-h-screen bg-warm-50">
       <Navbar />
-      <HeroSection />
-      <BrandsSection />
-      <CategoriesSection />
-      <FeaturedProducts />
+      <HeroSection makes={makes as any} />
+      <BrandsSection makes={makes as any} locale={locale} />
+      <CategoriesSection categories={categories as any} locale={locale} />
+      <FeaturedProducts products={featuredProducts as any} locale={locale} />
       <WhyChooseUs />
       <Footer />
     </main>
