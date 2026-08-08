@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
-import { ShoppingCart, Search, User, Menu, X, ChevronDown, LayoutDashboard, ShoppingBag, LogOut, Shield } from 'lucide-react'
+import { ShoppingCart, Search, User, Menu, X, ChevronDown, LayoutDashboard, ShoppingBag, LogOut, Shield, Heart } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
@@ -214,7 +214,7 @@ export default function Navbar() {
                       </Link>
                       <Link href={`/${locale}/wishlist`} onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
-                        <span className="text-red-400">&#10084;</span>
+                        <Heart className="w-4 h-4 text-red-400 fill-current" />
                         Wishlist
                       </Link>
                     )}
