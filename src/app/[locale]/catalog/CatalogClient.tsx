@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter, usePathname } from 'next/navigation'
-import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react'
+import { Search, SlidersHorizontal, X, ChevronDown, Car, Truck, Bus } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import ProductCard from '@/components/shared/ProductCard'
+import { createClient } from '@/lib/supabase/client'
 import type { SparePart, PartCategory, VehicleMake, CatalogFilters } from '@/types'
 
 interface Props {
@@ -32,24 +33,51 @@ const PART_TYPES = [
   { value: 'remanufactured', label: 'Remanufactured' },
 ]
 
+const VEHICLE_TYPES = [
+  { value: '', label: 'All Vehicles', icon: '🚗' },
+  { value: 'sedan', label: 'Car / Sedan', icon: '🚗' },
+  { value: 'suv', label: 'SUV / 4WD', icon: '🚙' },
+  { value: 'pickup', label: 'Pickup', icon: '🛻' },
+  { value: 'van', label: 'Van / Bus', icon: '🚐' },
+  { value: 'truck', label: 'Truck', icon: '🚚' },
+  { value: 'heavy', label: 'Heavy Equipment', icon: '🚜' },
+]
+
 export default function CatalogClient({ locale, initialProducts, totalCount, categories, makes, filters }: Props) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
   const router = useRouter()
   const pathname = usePathname()
+  const supabase = createClient()
+  const searchRef = useRef<HTMLDivElement>(null)
 
   const [search, setSearch] = useState(filters.q || '')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(filters.category || '')
   const [selectedMake, setSelectedMake] = useState(filters.make || '')
   const [selectedType, setSelectedType] = useState(filters.part_type || '')
+  const [selectedVehicleType, setSelectedVehicleType] = useState('')
   const [sort, setSort] = useState(filters.sort || 'newest')
+
+  // Predictive search
+  const [suggestions, setSuggestions] = useState<{ name: string; part_number: string; brand: string }[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestLoading, setSuggestLoading] = useState(false)
 
   const applyFilters = (overrides: Partial<CatalogFilters> = {}) => {
     const params = new URLSearchParams()
-    const merged = { q: search, category: selectedCategory, make: selectedMake, type: selectedType, sort, ...overrides }
+    const merged = {
+      q: search,
+      category: selectedCategory,
+      make: selectedMake,
+      type: selectedType,
+      vehicle_type: selectedVehicleType,
+      sort,
+      ...overrides
+    }
     Object.entries(merged).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
     router.push(`${pathname}?${params.toString()}`)
+    setShowSuggestions(false)
   }
 
   const clearFilters = () => {
@@ -57,11 +85,43 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
     setSelectedCategory('')
     setSelectedMake('')
     setSelectedType('')
+    setSelectedVehicleType('')
     setSort('newest')
+    setSuggestions([])
     router.push(pathname)
   }
 
-  const hasActiveFilters = search || selectedCategory || selectedMake || selectedType
+  // Predictive search
+  useEffect(() => {
+    if (search.length < 2) { setSuggestions([]); return }
+    const timer = setTimeout(async () => {
+      setSuggestLoading(true)
+      const { data } = await supabase
+        .from('spare_parts')
+        .select('name, part_number, brand')
+        .eq('is_active', true)
+        .or(`name.ilike.%${search}%,part_number.ilike.%${search}%,brand.ilike.%${search}%`)
+        .limit(6)
+      setSuggestions(data ?? [])
+      setSuggestLoading(false)
+      setShowSuggestions(true)
+    }, 300)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const hasActiveFilters = search || selectedCategory || selectedMake || selectedType || selectedVehicleType
 
   return (
     <div className="min-h-screen bg-warm-50">
@@ -83,19 +143,64 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Vehicle Type Quick Filter */}
+        <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+          {VEHICLE_TYPES.map(vt => (
+            <button
+              key={vt.value}
+              onClick={() => { setSelectedVehicleType(vt.value); applyFilters({ vehicle_type: vt.value } as any) }}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all shrink-0 ${
+                selectedVehicleType === vt.value
+                  ? 'gold-gradient text-midnight-900'
+                  : 'border border-gray-200 bg-white text-midnight-600 hover:border-gold-300'
+              }`}
+            >
+              <span>{vt.icon}</span>
+              {vt.label}
+            </button>
+          ))}
+        </div>
+
         {/* Search + filter bar */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
+          {/* Predictive Search */}
+          <div className="relative flex-1 min-w-[200px]" ref={searchRef}>
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-midnight-400" />
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && applyFilters()}
+              onChange={e => { setSearch(e.target.value); setShowSuggestions(true) }}
+              onKeyDown={e => { if (e.key === 'Enter') applyFilters(); if (e.key === 'Escape') setShowSuggestions(false) }}
+              onFocus={() => search.length >= 2 && setShowSuggestions(true)}
               placeholder={tc('searchPlaceholder')}
               className="w-full ps-10 pe-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
             />
+            {/* Suggestions dropdown */}
+            {showSuggestions && (search.length >= 2) && (
+              <div className="absolute top-full start-0 end-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
+                {suggestLoading ? (
+                  <div className="px-4 py-3 text-xs text-midnight-400">Searching...</div>
+                ) : suggestions.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-midnight-400">No suggestions found</div>
+                ) : (
+                  suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setSearch(s.name); setShowSuggestions(false); applyFilters({ q: s.name }) }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gold-50 transition-colors text-start"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-midnight-900">{s.name}</p>
+                        <p className="text-xs text-midnight-400 font-mono">{s.part_number}</p>
+                      </div>
+                      {s.brand && (
+                        <span className="text-xs text-gold-600 font-semibold shrink-0 ms-2">{s.brand}</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sort */}
