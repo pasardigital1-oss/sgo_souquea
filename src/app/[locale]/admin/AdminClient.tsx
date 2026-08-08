@@ -168,13 +168,20 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
       .select('id, full_name, admin_role, is_active, created_at')
       .eq('role', 'admin')
       .order('created_at', { ascending: true })
-    // Deduplicate by id
+    // Fetch emails via admin API
+    const res = await fetch('/api/admin/list-admins')
+    const emailMap: Record<string, string> = {}
+    if (res.ok) {
+      const json = await res.json()
+      json.users?.forEach((u: any) => { emailMap[u.id] = u.email })
+    }
+    // Deduplicate by id and attach email
     const seen = new Set()
     const unique = (data ?? []).filter((u: any) => {
       if (seen.has(u.id)) return false
       seen.add(u.id)
       return true
-    })
+    }).map((u: any) => ({ ...u, email: emailMap[u.id] || '' }))
     setAdminUsers(unique)
     setAdminUsersLoading(false)
     setAdminUsersLoaded(true)
@@ -836,6 +843,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
                       <th className="text-start px-4 py-3 font-semibold text-midnight-600">Name</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Email</th>
                       <th className="text-start px-4 py-3 font-semibold text-midnight-600">Role</th>
                       <th className="text-start px-4 py-3 font-semibold text-midnight-600">Status</th>
                       <th className="text-start px-4 py-3 font-semibold text-midnight-600">Action</th>
@@ -843,10 +851,11 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {adminUsers.length === 0 ? (
-                      <tr><td colSpan={4} className="px-4 py-8 text-center text-midnight-400">No admin accounts found</td></tr>
+                      <tr><td colSpan={5} className="px-4 py-8 text-center text-midnight-400">No admin accounts found</td></tr>
                     ) : adminUsers.map((u: any) => (
                       <tr key={u.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 font-medium text-midnight-900">{u.full_name || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-midnight-500 font-mono">{u.email || '—'}</td>
                         <td className="px-4 py-3">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                             u.admin_role === 'super_admin'
