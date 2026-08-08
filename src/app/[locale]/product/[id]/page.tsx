@@ -11,10 +11,31 @@ export async function generateMetadata({ params }: Props) {
   const { id, locale } = await params
   const product = await getProductById(id)
   if (!product) return { title: 'Product Not Found' }
-  const t = await getTranslations({ locale, namespace: 'product' })
+
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sgo-souquea.vercel.app'
+  const name = locale === 'ar' && product.name_ar ? product.name_ar : product.name
+  const description = product.description
+    || `${product.brand ?? ''} ${product.part_number} — ${product.part_type?.toUpperCase()} auto part available in UAE`
+  const image = product.images?.[0] ?? `${APP_URL}/icons/icon-512x512.png`
+
   return {
-    title: locale === 'ar' && product.name_ar ? product.name_ar : product.name,
-    description: product.description || `${product.brand} ${product.part_number}`,
+    title: `${name} | SGO-SouqUAE`,
+    description,
+    openGraph: {
+      title: name,
+      description,
+      images: [{ url: image, width: 800, height: 600, alt: name }],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: name,
+      description,
+      images: [image],
+    },
+    alternates: {
+      canonical: `${APP_URL}/${locale}/product/${id}`,
+    },
   }
 }
 

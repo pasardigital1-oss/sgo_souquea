@@ -13,10 +13,11 @@ import { createClient } from '@/lib/supabase/client'
 interface Props {
   product: SparePart
   locale: string
-  flashDiscount?: number // percentage discount from flash sale
+  flashDiscount?: number
+  priority?: boolean // for above-the-fold products
 }
 
-export default function ProductCard({ product, locale, flashDiscount }: Props) {
+export default function ProductCard({ product, locale, flashDiscount, priority = false }: Props) {
   const tc = useTranslations('common')
   const tp = useTranslations('product')
   const addItem = useCartStore((state) => state.addItem)
@@ -95,7 +96,9 @@ export default function ProductCard({ product, locale, flashDiscount }: Props) {
             alt={product.name}
             fill
             className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            loading={priority ? 'eager' : 'lazy'}
+            priority={priority}
           />
         ) : (
           <Package className="w-16 h-16 text-gray-300 group-hover:scale-105 transition-transform" />

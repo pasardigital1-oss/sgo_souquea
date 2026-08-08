@@ -68,14 +68,30 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
     shipped: 'Mark Delivered',
   }
 
+  // Tracking number state for when marking as shipped
+  const [trackingInput, setTrackingInput] = useState<Record<string, { number: string; courier: string }>>({})
+  const [showTrackingForm, setShowTrackingForm] = useState<string | null>(null)
+
   const handleUpdateOrderStatus = async (orderId: string, currentStatus: string) => {
     const nextStatus = NEXT_STATUS[currentStatus]
     if (!nextStatus) return
+
+    // For "Mark Shipped", show tracking form first
+    if (nextStatus === 'shipped' && showTrackingForm !== orderId) {
+      setShowTrackingForm(orderId)
+      return
+    }
+
     setUpdatingOrderId(orderId)
     const now = new Date().toISOString()
     const extra: Record<string, string> = {}
     if (nextStatus === 'confirmed') extra.confirmed_at = now
-    if (nextStatus === 'shipped') extra.shipped_at = now
+    if (nextStatus === 'shipped') {
+      extra.shipped_at = now
+      const tracking = trackingInput[orderId]
+      if (tracking?.number) extra.tracking_number = tracking.number
+      if (tracking?.courier) extra.courier = tracking.courier
+    }
     if (nextStatus === 'delivered') extra.delivered_at = now
 
     const { error } = await supabase
@@ -87,11 +103,18 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
       setOrderList(prev =>
         prev.map(o => o.id === orderId ? { ...o, status: nextStatus, ...extra } : o)
       )
+      setShowTrackingForm(null)
       // Fire notify
       fetch('/api/notify-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, type: nextStatus === 'confirmed' ? 'confirmed' : nextStatus === 'shipped' ? 'shipped' : 'delivered' }),
+        body: JSON.stringify({
+          orderId,
+          type: nextStatus === 'confirmed' ? 'confirmed'
+              : nextStatus === 'shipped' ? 'shipped'
+              : nextStatus === 'delivered' ? 'delivered'
+              : nextStatus,
+        }),
       }).catch(console.error)
     }
     setUpdatingOrderId(null)
@@ -356,14 +379,23 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                     orderList.map((order: any) => {
                       const nextAction = STATUS_ACTIONS[order.status]
                       const isUpdating = updatingOrderId === order.id
+                      const isShowingTracking = showTrackingForm === order.id
                       return (
+                        <>
                         <tr key={order.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 font-mono font-medium text-midnight-900">{order.order_number}</td>
                           <td className="px-4 py-3 text-midnight-500">{new Date(order.created_at).toLocaleDateString()}</td>
                           <td className="px-4 py-3">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[order.status] || ''}`}>
-                              {order.status}
-                            </span>
+                            <div className="space-y-1">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_COLORS[order.status] || ''}`}>
+                                {order.status}
+                              </span>
+                              {order.tracking_number && (
+                                <p className="text-xs text-midnight-400 font-mono">
+                                  📦 {order.courier ? `${order.courier}: ` : ''}{order.tracking_number}
+                                </p>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 font-semibold text-midnight-900">{formatAED(order.total_aed)}</td>
                           <td className="px-4 py-3">
@@ -386,6 +418,57 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
                             )}
                           </td>
                         </tr>
+                        {/* Tracking form — shown when marking as shipped */}
+                        {isShowingTracking && (
+                          <tr key={`tracking-${order.id}`}>
+                            <td colSpan={5} className="px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+                              <div className="flex flex-wrap items-end gap-3">
+                                <p className="text-xs font-semibold text-indigo-800 w-full mb-1">📦 Enter Tracking Info (optional)</p>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-indigo-700">Courier / Shipping Company</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Aramex, DHL, FedEx"
+                                    value={trackingInput[order.id]?.courier ?? ''}
+                                    onChange={e => setTrackingInput(prev => ({
+                                      ...prev,
+                                      [order.id]: { ...prev[order.id], courier: e.target.value, number: prev[order.id]?.number ?? '' }
+                                    }))}
+                                    className="px-3 py-1.5 rounded-lg border border-indigo-200 text-sm focus:outline-none focus:border-indigo-400 bg-white w-48"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-indigo-700">Tracking Number</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. 1Z999AA10123456784"
+                                    value={trackingInput[order.id]?.number ?? ''}
+                                    onChange={e => setTrackingInput(prev => ({
+                                      ...prev,
+                                      [order.id]: { ...prev[order.id], number: e.target.value, courier: prev[order.id]?.courier ?? '' }
+                                    }))}
+                                    className="px-3 py-1.5 rounded-lg border border-indigo-200 text-sm focus:outline-none focus:border-indigo-400 bg-white w-52 font-mono"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(order.id, order.status)}
+                                  disabled={isUpdating}
+                                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 disabled:opacity-60"
+                                >
+                                  {isUpdating ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                                  Confirm Shipped
+                                </button>
+                                <button
+                                  onClick={() => setShowTrackingForm(null)}
+                                  className="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-600 text-xs hover:bg-indigo-100"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </>
                       )
                     })
                   )}

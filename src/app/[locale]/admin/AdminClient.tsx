@@ -392,11 +392,36 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         const json = await res.json()
         console.error('Vendor action failed:', json.error)
       }
+
+      // Send email notification to vendor
+      const vendor = vendors.find(v => v.id === vendorId)
+      if (vendor) {
+        // Get vendor email via admin API
+        fetch('/api/admin/vendor-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: vendor.user_id }),
+        })
+        .then(r => r.json())
+        .then(({ email }) => {
+          if (email) {
+            fetch('/api/notify-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: action === 'approved' ? 'vendor_approved' : 'vendor_rejected',
+                vendorEmail: email,
+                vendorName: vendor.business_name,
+              }),
+            }).catch(console.error)
+          }
+        })
+        .catch(console.error)
+      }
     } catch (err) {
       console.error('Vendor action error', err)
     }
 
-    // Refresh vendor lists from DB
     await refreshVendors()
     setActionLoading(null)
   }

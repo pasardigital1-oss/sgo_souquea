@@ -26,6 +26,23 @@ export default function VendorOnboardingPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [licenseFile, setLicenseFile] = useState<File | null>(null)
+  const [licenseUploadError, setLicenseUploadError] = useState('')
+
+  const handleLicenseFile = (file: File) => {
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png']
+    if (!allowed.includes(file.type)) {
+      setLicenseUploadError('Only PDF, JPG, PNG files are allowed')
+      return
+    }
+    if (file.size > maxSize) {
+      setLicenseUploadError('File size must be under 5MB')
+      return
+    }
+    setLicenseUploadError('')
+    setLicenseFile(file)
+  }
 
   const [form, setForm] = useState({
     business_name: '',
@@ -54,6 +71,26 @@ export default function VendorOnboardingPage() {
       return
     }
 
+    // Upload trade license document if provided
+    let trade_license_url: string | null = null
+    if (licenseFile) {
+      const ext = licenseFile.name.split('.').pop()
+      const filePath = `${user.id}/trade_license_${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('vendor-documents')
+        .upload(filePath, licenseFile, { upsert: true })
+
+      if (uploadError) {
+        // Non-fatal — continue without URL
+        console.warn('License upload failed:', uploadError.message)
+      } else {
+        const { data: urlData } = supabase.storage
+          .from('vendor-documents')
+          .getPublicUrl(filePath)
+        trade_license_url = urlData?.publicUrl ?? null
+      }
+    }
+
     const { error } = await supabase.from('vendors').insert({
       user_id: user.id,
       business_name: form.business_name,
@@ -63,6 +100,7 @@ export default function VendorOnboardingPage() {
       address: form.address,
       trade_license_no: form.trade_license_no,
       trade_license_expiry: form.trade_license_expiry,
+      trade_license_url,
       vat_trn: form.vat_trn || null,
       bank_name: form.bank_name || null,
       bank_iban: form.bank_iban || null,
@@ -206,9 +244,47 @@ export default function VendorOnboardingPage() {
                   placeholder="100XXXXXXXXX00003" className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
               </div>
 
-              <div className="p-4 bg-gold-50 border border-gold-200 rounded-xl">
-                <p className="text-sm text-gold-800 font-medium mb-1">📋 Document Upload</p>
-                <p className="text-xs text-gold-700">Trade License document upload will be available after initial approval. Our team will contact you via email.</p>
+              {/* Trade License Document Upload */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-midnight-700">
+                  Trade License Document <span className="text-midnight-400 font-normal">(PDF, JPG, PNG — max 5MB)</span>
+                </label>
+                <div
+                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                    licenseFile ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50 hover:border-gold-300'
+                  }`}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault()
+                    const file = e.dataTransfer.files[0]
+                    if (file) handleLicenseFile(file)
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleLicenseFile(f) }}
+                  />
+                  {licenseFile ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <FileText className="w-8 h-8 text-green-500" />
+                      <div className="text-left">
+                        <p className="text-sm font-semibold text-green-700">{licenseFile.name}</p>
+                        <p className="text-xs text-green-600">{(licenseFile.size / 1024).toFixed(0)} KB — ready to upload</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-midnight-500">Drag & drop or <span className="text-gold-600 font-medium">click to browse</span></p>
+                      <p className="text-xs text-midnight-400 mt-1">Upload your trade license document</p>
+                    </div>
+                  )}
+                </div>
+                {licenseUploadError && (
+                  <p className="text-xs text-red-500">{licenseUploadError}</p>
+                )}
               </div>
             </div>
           )}

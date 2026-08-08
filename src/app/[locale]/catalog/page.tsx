@@ -11,7 +11,17 @@ type Props = {
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'nav' })
-  return { title: t('catalog') }
+  const isAr = locale === 'ar'
+  return {
+    title: isAr ? 'كتالوج قطع الغيار | SGO-SouqUAE' : 'Auto Parts Catalog | SGO-SouqUAE',
+    description: isAr
+      ? 'تصفح آلاف قطع غيار السيارات الأصلية والبديلة من الموردين المعتمدين في الإمارات'
+      : 'Browse thousands of OEM & aftermarket auto parts from trusted vendors across UAE. Filter by make, model, category and more.',
+    openGraph: {
+      title: isAr ? 'كتالوج قطع الغيار' : 'Auto Parts Catalog',
+      description: isAr ? 'قطع غيار السيارات في الإمارات' : 'OEM & aftermarket auto parts UAE',
+    },
+  }
 }
 
 export default async function CatalogPage({ params, searchParams }: Props) {
