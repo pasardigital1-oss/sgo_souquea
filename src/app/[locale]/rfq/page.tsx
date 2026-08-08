@@ -120,10 +120,21 @@ export default function RFQPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
 
+    // Check if user has a profile — if not, set customer_id to null
+    let customerId: string | null = null
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+      customerId = profile ? user.id : null
+    }
+
     const { data, error: insertError } = await supabase
       .from('rfq_requests')
       .insert({
-        customer_id: user?.id ?? null,
+        customer_id: customerId,
         make: form.make,
         model: form.model,
         year: Number(form.year),
