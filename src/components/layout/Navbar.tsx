@@ -212,6 +212,11 @@ export default function Navbar() {
                         <span className="text-gold-500">🚗</span>
                         My Garage
                       </Link>
+                      <Link href={`/${locale}/wishlist`} onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                        <span className="text-red-400">❤️</span>
+                        Wishlist
+                      </Link>
                     )}
                     {userRole === 'admin' && (
                       <Link href={`/${locale}/admin`} onClick={() => setUserMenuOpen(false)}
@@ -304,6 +309,7 @@ export default function Navbar() {
             { href: `/${locale}/rfq`, label: '🔍 Request a Part' },
             { href: `/${locale}/used-parts`, label: '🔧 Used Parts' },
             { href: `/${locale}/vin`, label: '🚗 VIN Decoder' },
+            { href: `/${locale}/wishlist`, label: '❤️ Wishlist' },
             { href: `/${locale}/orders`, label: t('orders') },
             { href: `/${locale}/profile/garage`, label: '🚗 My Garage' },
             ...(user ? [] : [

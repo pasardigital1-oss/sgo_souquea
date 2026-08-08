@@ -57,6 +57,7 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
   const [selectedMake, setSelectedMake] = useState(filters.make || '')
   const [selectedType, setSelectedType] = useState(filters.part_type || '')
   const [selectedVehicleType, setSelectedVehicleType] = useState('')
+  const [selectedYear, setSelectedYear] = useState(filters.year?.toString() || '')
   const [sort, setSort] = useState(filters.sort || 'newest')
 
   // Predictive search
@@ -72,6 +73,7 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
       make: selectedMake,
       type: selectedType,
       vehicle_type: selectedVehicleType,
+      year: selectedYear,
       sort,
       ...overrides
     }
@@ -86,6 +88,7 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
     setSelectedMake('')
     setSelectedType('')
     setSelectedVehicleType('')
+    setSelectedYear('')
     setSort('newest')
     setSuggestions([])
     router.push(pathname)
@@ -121,7 +124,7 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const hasActiveFilters = search || selectedCategory || selectedMake || selectedType || selectedVehicleType
+  const hasActiveFilters = search || selectedCategory || selectedMake || selectedType || selectedVehicleType || selectedYear
 
   return (
     <div className="min-h-screen bg-warm-50">
@@ -281,6 +284,21 @@ export default function CatalogClient({ locale, initialProducts, totalCount, cat
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50"
                 >
                   {PART_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+
+              {/* Year */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Year</label>
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50"
+                >
+                  <option value="">All Years</option>
+                  {Array.from({ length: 35 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
                 </select>
               </div>
             </div>

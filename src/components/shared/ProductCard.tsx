@@ -1,36 +1,69 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingCart, Star, Shield, Package, CheckCircle } from 'lucide-react'
+import { ShoppingCart, Star, Shield, Package, CheckCircle, Heart } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { addVAT, formatAED } from '@/lib/utils'
 import type { SparePart } from '@/types'
 import { useCartStore } from '@/store/cartStore'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   product: SparePart
   locale: string
+  flashDiscount?: number // percentage discount from flash sale
 }
 
-export default function ProductCard({ product, locale }: Props) {
+export default function ProductCard({ product, locale, flashDiscount }: Props) {
   const tc = useTranslations('common')
   const tp = useTranslations('product')
   const addItem = useCartStore((state) => state.addItem)
   const [added, setAdded] = useState(false)
+  const [wishlisted, setWishlisted] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
 
-  // Get lowest price from inventory
   const prices = product.inventory?.map(i => i.price_aed) || []
   const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0
   const totalStock = product.inventory?.reduce((sum, i) => sum + i.quantity, 0) || 0
 
-  const { vatAmount, total } = addVAT(lowestPrice)
+  // Apply flash sale discount
+  const effectivePrice = flashDiscount
+    ? lowestPrice * (1 - flashDiscount / 100)
+    : lowestPrice
+  const { vatAmount, total } = addVAT(effectivePrice)
 
   const imageUrl = product.images?.[0] || null
-
-  // Get best inventory entry (highest stock or lowest price)
   const bestInventory = product.inventory?.find(i => i.price_aed === lowestPrice) || product.inventory?.[0]
+
+  // Check wishlist status
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('wishlists').select('id').eq('user_id', user.id).eq('part_id', product.id).single()
+        .then(({ data }) => setWishlisted(!!data))
+    })
+  }, [product.id])
+
+  const handleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setWishlistLoading(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setWishlistLoading(false); return }
+
+    if (wishlisted) {
+      await supabase.from('wishlists').delete().eq('user_id', user.id).eq('part_id', product.id)
+      setWishlisted(false)
+    } else {
+      await supabase.from('wishlists').insert({ user_id: user.id, part_id: product.id })
+      setWishlisted(true)
+    }
+    setWishlistLoading(false)
+  }
 
   const handleAddToCart = () => {
     if (!bestInventory || totalStock === 0) return
@@ -42,7 +75,7 @@ export default function ProductCard({ product, locale }: Props) {
       part_number: product.part_number,
       brand: product.brand ?? undefined,
       image: imageUrl ?? undefined,
-      price_aed: bestInventory.price_aed,
+      price_aed: effectivePrice,
       quantity: 1,
       vendor_id: bestInventory.vendor_id,
       vendor_name: product.vendors?.business_name ?? '',
@@ -68,18 +101,40 @@ export default function ProductCard({ product, locale }: Props) {
           <Package className="w-16 h-16 text-gray-300 group-hover:scale-105 transition-transform" />
         )}
 
-        {/* Part type badge */}
-        <div className={`absolute top-3 start-3 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-          product.part_type === 'oem'
-            ? 'bg-gold-100 text-gold-800 border border-gold-200'
-            : 'bg-blue-50 text-blue-700 border border-blue-200'
-        }`}>
-          {product.part_type === 'oem' ? '✓ OEM' : tp(product.part_type as any)}
-        </div>
+        {/* Flash sale badge */}
+        {flashDiscount && (
+          <div className="absolute top-3 start-3 px-2 py-1 rounded-full text-[10px] font-bold bg-red-500 text-white animate-pulse">
+            -{flashDiscount}% SALE
+          </div>
+        )}
+
+        {/* Part type badge — hide if flash sale */}
+        {!flashDiscount && (
+          <div className={`absolute top-3 start-3 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+            product.part_type === 'oem'
+              ? 'bg-gold-100 text-gold-800 border border-gold-200'
+              : 'bg-blue-50 text-blue-700 border border-blue-200'
+          }`}>
+            {product.part_type === 'oem' ? '✓ OEM' : tp(product.part_type as any)}
+          </div>
+        )}
+
+        {/* Wishlist button */}
+        <button
+          onClick={handleWishlist}
+          disabled={wishlistLoading}
+          className={`absolute top-3 end-3 w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm ${
+            wishlisted
+              ? 'bg-red-500 text-white'
+              : 'bg-white/90 text-midnight-400 hover:text-red-500 hover:bg-white'
+          }`}
+        >
+          <Heart className={`w-4 h-4 ${wishlisted ? 'fill-current' : ''}`} />
+        </button>
 
         {/* Warranty */}
-        {product.warranty_months > 0 && (
-          <div className="absolute top-3 end-3 flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 text-[10px] text-midnight-600 border border-gray-200">
+        {product.warranty_months > 0 && !flashDiscount && (
+          <div className="absolute bottom-3 end-3 flex items-center gap-1 px-2 py-1 rounded-full bg-white/90 text-[10px] text-midnight-600 border border-gray-200">
             <Shield className="w-3 h-3 text-green-600" />
             {product.warranty_months}m
           </div>
@@ -121,16 +176,20 @@ export default function ProductCard({ product, locale }: Props) {
           </p>
         )}
 
-        {/* Spacer */}
         <div className="flex-1" />
 
         {/* Price */}
         {lowestPrice > 0 ? (
           <div>
-            <div className="flex items-baseline gap-1">
+            <div className="flex items-baseline gap-2">
               <span className="font-heading font-bold text-lg text-midnight-900">
                 {formatAED(total)}
               </span>
+              {flashDiscount && (
+                <span className="text-xs text-midnight-400 line-through">
+                  {formatAED(addVAT(lowestPrice).total)}
+                </span>
+              )}
             </div>
             <p className="text-midnight-400 text-[10px]">{tc('vatIncluded')}</p>
           </div>
@@ -150,22 +209,16 @@ export default function ProductCard({ product, locale }: Props) {
             }`}
           >
             {added ? (
-              <>
-                <CheckCircle className="w-3.5 h-3.5" />
-                Added!
-              </>
+              <><CheckCircle className="w-3.5 h-3.5" />Added!</>
             ) : (
-              <>
-                <ShoppingCart className="w-3.5 h-3.5" />
-                {tc('addToCart')}
-              </>
+              <><ShoppingCart className="w-3.5 h-3.5" />{tc('addToCart')}</>
             )}
           </button>
           <Link
             href={`/${locale}/product/${product.id}`}
             className="flex items-center justify-center py-2 rounded-xl gold-gradient text-midnight-900 text-xs font-bold hover:opacity-90 transition-opacity"
           >
-            {tc('viewAll').replace('View All', 'Details')}
+            Details
           </Link>
         </div>
       </div>

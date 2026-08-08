@@ -5,6 +5,7 @@ import HeroSection from '@/components/layout/HeroSection'
 import BrandsSection from '@/components/layout/BrandsSection'
 import CategoriesSection from '@/components/layout/CategoriesSection'
 import FeaturedProducts from '@/components/layout/FeaturedProducts'
+import FlashSaleSection from '@/components/layout/FlashSaleSection'
 import WhyChooseUs from '@/components/layout/WhyChooseUs'
 import Footer from '@/components/layout/Footer'
 import { getFeaturedProducts, getVehicleMakes, getCategories } from '@/lib/supabase/queries'
@@ -36,6 +37,7 @@ export default async function HomePage({ params }: Props) {
     <main className="min-h-screen bg-warm-50">
       <Navbar />
       <HeroSection makes={makes as any} />
+      <FlashSaleSection />
       <BrandsSection makes={makes as any} locale={locale} />
       <CategoriesSection categories={categories as any} locale={locale} />
       <FeaturedProducts products={featuredProducts as any} locale={locale} />
