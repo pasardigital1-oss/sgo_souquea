@@ -55,8 +55,9 @@ export default function Footer() {
                 { href: `/${locale}/catalog`, label: t('catalog') },
                 { href: `/${locale}/catalog?type=oem`, label: 'OEM Parts' },
                 { href: `/${locale}/catalog?type=aftermarket`, label: 'Aftermarket' },
-                { href: `/${locale}/catalog?new=true`, label: 'New Arrivals' },
-                { href: `/${locale}/vendors`, label: 'Our Vendors' },
+                { href: `/${locale}/used-parts`, label: 'Used Parts' },
+                { href: `/${locale}/rfq`, label: 'Request a Part' },
+                { href: `/${locale}/vin`, label: 'VIN Decoder' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-sm hover:text-gold-400 transition-colors">
@@ -76,7 +77,8 @@ export default function Footer() {
                 { href: `/${locale}/auth/register`, label: t('register') },
                 { href: `/${locale}/orders`, label: t('orders') },
                 { href: `/${locale}/profile`, label: t('profile') },
-                { href: `/${locale}/auth/register?role=vendor`, label: 'Become a Vendor' },
+                { href: `/${locale}/profile/garage`, label: 'My Garage' },
+                { href: `/${locale}/vendor/onboarding`, label: 'Become a Vendor' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-sm hover:text-gold-400 transition-colors">
@@ -92,11 +94,11 @@ export default function Footer() {
             <h4 className="font-heading font-semibold text-white mb-4 text-sm uppercase tracking-wider">Support</h4>
             <ul className="space-y-2">
               {[
-                { href: '#', label: 'Help Center' },
-                { href: '#', label: 'Track Order' },
-                { href: '#', label: 'Return Policy' },
-                { href: '#', label: 'Privacy Policy' },
-                { href: '#', label: 'Terms of Service' },
+                { href: `/${locale}/rfq`, label: 'Help Center' },
+                { href: `/${locale}/orders`, label: 'Track Order' },
+                { href: `/${locale}/rfq`, label: 'Return Policy' },
+                { href: `/${locale}/rfq`, label: 'Privacy Policy' },
+                { href: `/${locale}/rfq`, label: 'Terms of Service' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="text-sm hover:text-gold-400 transition-colors">
