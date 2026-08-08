@@ -2,6 +2,8 @@ export type Locale = 'en' | 'ar' | 'id'
 
 export type Role = 'customer' | 'vendor' | 'admin'
 
+export type AdminRole = 'super_admin' | 'admin'
+
 export type Emirates = 'dubai' | 'abu_dhabi' | 'sharjah' | 'ajman' | 'rak' | 'uaq' | 'fujairah'
 
 export type PartType = 'oem' | 'aftermarket' | 'remanufactured' | 'used'
@@ -15,6 +17,7 @@ export interface Profile {
   full_name: string | null
   phone: string | null
   role: Role
+  admin_role: AdminRole | null
   emirate: Emirates | null
   preferred_lang: Locale
   avatar_url: string | null

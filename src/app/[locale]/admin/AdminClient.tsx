@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock,
   LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter,
-  Settings, Globe, Phone, Mail, MapPin, FileText, Save
+  Settings, Globe, Phone, Mail, MapPin, FileText, Save, UserCog, Shield, Trash2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -21,12 +21,14 @@ interface Stats {
 
 interface Props {
   locale: string
+  adminRole: 'super_admin' | 'admin'
+  currentUserEmail: string
   pendingVendors: any[]
   allVendors: any[]
   stats: Stats
 }
 
-type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings' | 'pages'
+type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings' | 'pages' | 'admin_users'
 
 // ─── Payment gateway definitions ─────────────────────────────────────────────
 const GATEWAYS = [
@@ -45,13 +47,27 @@ interface GatewaySettings {
   webhook_secret: string
 }
 
-export default function AdminClient({ locale, pendingVendors, allVendors, stats }: Props) {
+export default function AdminClient({ locale, adminRole, currentUserEmail, pendingVendors, allVendors, stats }: Props) {
   const ta = useTranslations('admin')
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [vendors, setVendors] = useState(pendingVendors)
   const router = useRouter()
   const supabase = createClient()
+
+  const isSuperAdmin = adminRole === 'super_admin'
+
+  // ── Admin Users state ────────────────────────────────────────────────────────
+  const [adminUsers, setAdminUsers] = useState<any[]>([])
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false)
+  const [adminUsersLoaded, setAdminUsersLoaded] = useState(false)
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [newAdminName, setNewAdminName] = useState('')
+  const [newAdminRole, setNewAdminRole] = useState<'super_admin' | 'admin'>('admin')
+  const [newAdminPass, setNewAdminPass] = useState('')
+  const [addAdminLoading, setAddAdminLoading] = useState(false)
+  const [addAdminError, setAddAdminError] = useState('')
+  const [addAdminSuccess, setAddAdminSuccess] = useState('')
 
   // ── Payment settings state ──────────────────────────────────────────────────
   const [globalSandbox, setGlobalSandbox] = useState(true)
@@ -141,7 +157,60 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     if (activeTab === 'orders') loadAdminOrders()
     if (activeTab === 'settings') loadSiteSettings()
     if (activeTab === 'pages') loadPages()
+    if (activeTab === 'admin_users') loadAdminUsers()
   }, [activeTab, loadPaymentSettings, loadAdminOrders])
+
+  const loadAdminUsers = useCallback(async () => {
+    if (adminUsersLoaded) return
+    setAdminUsersLoading(true)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, admin_role, is_active, created_at')
+      .eq('role', 'admin')
+      .order('created_at', { ascending: true })
+    setAdminUsers(data ?? [])
+    setAdminUsersLoading(false)
+    setAdminUsersLoaded(true)
+  }, [adminUsersLoaded, supabase])
+
+  const handleAddAdmin = async () => {
+    if (!newAdminEmail || !newAdminPass || !newAdminName) {
+      setAddAdminError('Name, email, and password are required.')
+      return
+    }
+    setAddAdminLoading(true)
+    setAddAdminError('')
+    setAddAdminSuccess('')
+
+    // Use Supabase admin API via service role — create user + set role
+    const res = await fetch('/api/admin/create-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newAdminEmail,
+        password: newAdminPass,
+        full_name: newAdminName,
+        admin_role: newAdminRole,
+      }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      setAddAdminError(json.error || 'Failed to create admin.')
+    } else {
+      setAddAdminSuccess(`Admin "${newAdminName}" created successfully!`)
+      setNewAdminEmail('')
+      setNewAdminPass('')
+      setNewAdminName('')
+      setAdminUsersLoaded(false)
+      loadAdminUsers()
+    }
+    setAddAdminLoading(false)
+  }
+
+  const handleToggleAdmin = async (userId: string, isActive: boolean) => {
+    await supabase.from('profiles').update({ is_active: !isActive }).eq('id', userId)
+    setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: !isActive } : u))
+  }
 
   const loadPages = useCallback(async () => {
     if (pagesLoaded) return
@@ -256,9 +325,10 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     { id: 'pending_vendors', icon: Clock, label: ta('pendingVendors'), badge: vendors.length },
     { id: 'all_vendors', icon: Store, label: ta('vendors') },
     { id: 'orders', icon: ShoppingBag, label: 'Orders' },
-    { id: 'payment', icon: CreditCard, label: 'Payment' },
-    { id: 'pages', icon: FileText, label: 'Pages' },
-    { id: 'settings', icon: Settings, label: 'Site Settings' },
+    { id: 'payment', icon: CreditCard, label: 'Payment', superOnly: true },
+    { id: 'pages', icon: FileText, label: 'Pages', superOnly: true },
+    { id: 'settings', icon: Settings, label: 'Site Settings', superOnly: true },
+    { id: 'admin_users', icon: UserCog, label: 'Admin Users', superOnly: true },
   ]
 
   return (
@@ -280,6 +350,8 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
           <nav className="space-y-1">
             {navItems.map(item => {
               const Icon = item.icon
+              // Hide super-only tabs for regular admin
+              if ((item as any).superOnly && !isSuperAdmin) return null
               return (
                 <button
                   key={item.id}
@@ -292,9 +364,9 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
                 >
                   <Icon className="w-4 h-4" />
                   <span className="flex-1 text-start">{item.label}</span>
-                  {item.badge ? (
+                  {(item as any).badge ? (
                     <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {item.badge}
+                      {(item as any).badge}
                     </span>
                   ) : null}
                 </button>
@@ -314,7 +386,6 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
       {/* Main */}
       <main className="flex-1 overflow-auto p-6">
         <h1 className="font-heading text-2xl font-bold text-midnight-900 mb-6">{ta('title')}</h1>
-
         {/* Overview */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -657,6 +728,149 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
               }
               {paymentSaved ? 'Settings Saved!' : 'Save Settings'}
             </button>
+          </div>
+        )}
+
+        {/* ── Admin Users (Super Admin only) ───────────────────────── */}
+        {activeTab === 'admin_users' && isSuperAdmin && (
+          <div className="space-y-6 max-w-3xl">
+            {/* Role info */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="bg-gold-50 border border-gold-200 rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <Shield className="w-5 h-5 text-gold-600" />
+                  <p className="font-semibold text-midnight-900">Super Admin</p>
+                </div>
+                <ul className="text-xs text-midnight-600 space-y-1">
+                  <li>✅ All access — vendors, orders, payment</li>
+                  <li>✅ Edit pages & site settings</li>
+                  <li>✅ Create & manage admin accounts</li>
+                  <li>✅ Full platform control</li>
+                </ul>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <UserCog className="w-5 h-5 text-blue-600" />
+                  <p className="font-semibold text-midnight-900">Admin</p>
+                </div>
+                <ul className="text-xs text-midnight-600 space-y-1">
+                  <li>✅ Vendor approval & management</li>
+                  <li>✅ View & manage orders</li>
+                  <li>❌ No payment / pages / settings</li>
+                  <li>❌ No admin user management</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Add new admin */}
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+              <h2 className="font-heading font-semibold text-midnight-900 mb-5 flex items-center gap-2">
+                <UserCog className="w-5 h-5 text-gold-500" /> Create New Admin Account
+              </h2>
+              {addAdminError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">{addAdminError}</div>
+              )}
+              {addAdminSuccess && (
+                <div className="mb-4 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">{addAdminSuccess}</div>
+              )}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Full Name *</label>
+                  <input type="text" value={newAdminName} onChange={e => setNewAdminName(e.target.value)}
+                    placeholder="Ahmad Al Rashidi"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-gold-400" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Email *</label>
+                  <input type="email" value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)}
+                    placeholder="admin@sgosouquae.com"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-gold-400" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Password *</label>
+                  <input type="password" value={newAdminPass} onChange={e => setNewAdminPass(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-gold-400" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Admin Role *</label>
+                  <select value={newAdminRole} onChange={e => setNewAdminRole(e.target.value as 'super_admin' | 'admin')}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-gold-400">
+                    <option value="admin">Admin (Vendor & Orders only)</option>
+                    <option value="super_admin">Super Admin (Full Access)</option>
+                  </select>
+                </div>
+              </div>
+              <button onClick={handleAddAdmin} disabled={addAdminLoading}
+                className="mt-5 flex items-center gap-2 px-6 py-2.5 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 disabled:opacity-60">
+                {addAdminLoading
+                  ? <span className="w-4 h-4 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                  : <UserCog className="w-4 h-4" />}
+                Create Admin Account
+              </button>
+            </div>
+
+            {/* Admin users list */}
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden">
+              <div className="p-5 border-b border-gray-100">
+                <h2 className="font-heading font-semibold text-midnight-900">All Admin Accounts</h2>
+              </div>
+              {adminUsersLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Name</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Role</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Status</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {adminUsers.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-midnight-400">No admin accounts found</td></tr>
+                    ) : adminUsers.map((u: any) => (
+                      <tr key={u.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-midnight-900">{u.full_name || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            u.admin_role === 'super_admin'
+                              ? 'bg-gold-50 text-gold-700 border border-gold-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}>
+                            {u.admin_role === 'super_admin' ? '⭐ Super Admin' : '👤 Admin'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            u.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+                          }`}>
+                            {u.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {u.id !== undefined && (
+                            <button
+                              onClick={() => handleToggleAdmin(u.id, u.is_active)}
+                              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+                                u.is_active
+                                  ? 'border-red-200 text-red-600 hover:bg-red-50'
+                                  : 'border-green-200 text-green-600 hover:bg-green-50'
+                              }`}
+                            >
+                              {u.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
 
