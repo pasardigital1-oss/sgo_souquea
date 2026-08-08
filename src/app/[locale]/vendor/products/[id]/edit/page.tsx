@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Package, Save, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowLeft, Package, Save, AlertCircle, CheckCircle, Loader2, Camera, X, UploadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { PartCategory, Emirates, PartType } from '@/types'
 
@@ -49,6 +50,14 @@ export default function VendorEditProductPage() {
   const [vendorId, setVendorId] = useState<string | null>(null)
   const [inventoryId, setInventoryId] = useState<string | null>(null)
 
+  // Image upload state
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([])
+  const [newPhotoPreviews, setNewPhotoPreviews] = useState<string[]>([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     async function init() {
       const supabase = createClient()
@@ -72,6 +81,9 @@ export default function VendorEditProductPage() {
       const inv = product.inventory?.[0]
       if (inv) setInventoryId(inv.id)
 
+      // Load existing images
+      setExistingImages(product.images ?? [])
+
       setForm({
         name: product.name ?? '', name_ar: product.name_ar ?? '',
         description: product.description ?? '', part_number: product.part_number ?? '',
@@ -92,6 +104,42 @@ export default function VendorEditProductPage() {
 
   const set = (field: keyof FormData, value: string | boolean) => setForm(prev => ({ ...prev, [field]: value }))
 
+  const handlePhotoSelect = (files: FileList | null) => {
+    if (!files) return
+    const totalAllowed = 5 - existingImages.length - newPhotoFiles.length
+    const newFiles = Array.from(files).slice(0, totalAllowed).filter(f => f.type.startsWith('image/'))
+    if (newFiles.length === 0) return
+    const combined = [...newPhotoFiles, ...newFiles].slice(0, 5 - existingImages.length)
+    setNewPhotoFiles(combined)
+    const previews: string[] = []
+    combined.forEach((file, i) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        previews[i] = e.target?.result as string
+        if (previews.filter(Boolean).length === combined.length) setNewPhotoPreviews([...previews])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const uploadNewPhotos = async (): Promise<string[]> => {
+    if (newPhotoFiles.length === 0) return []
+    setUploadingPhotos(true)
+    const supabase = createClient()
+    const urls: string[] = []
+    for (const file of newPhotoFiles) {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${vendorId}/${productId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: false })
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
+        urls.push(publicUrl)
+      }
+    }
+    setUploadingPhotos(false)
+    return urls
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!vendorId) return
@@ -102,6 +150,10 @@ export default function VendorEditProductPage() {
 
     const supabase = createClient()
 
+    // Upload new photos and merge with existing
+    const newImageUrls = await uploadNewPhotos()
+    const allImages = [...existingImages, ...newImageUrls]
+
     const { error: partError } = await supabase.from('spare_parts').update({
       category_id: form.category_id ? Number(form.category_id) : null,
       name: form.name.trim(), name_ar: form.name_ar.trim() || null,
@@ -110,6 +162,7 @@ export default function VendorEditProductPage() {
       part_type: form.part_type, condition: form.condition,
       warranty_months: Number(form.warranty_months) || 0,
       weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+      images: allImages,
       is_active: form.is_active, is_featured: form.is_featured,
     }).eq('id', productId).eq('vendor_id', vendorId)
 
@@ -267,6 +320,88 @@ export default function VendorEditProductPage() {
                 </select>
               </div>
             </div>
+          </section>
+
+          {/* Photo Management */}
+          <section className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6 space-y-5">
+            <h2 className="font-heading font-semibold text-midnight-900 text-lg border-b border-gray-100 pb-3">
+              Product Photos <span className="text-sm font-normal text-midnight-400">(max 5 total)</span>
+            </h2>
+
+            {/* Existing images */}
+            {existingImages.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-midnight-500 uppercase tracking-wider mb-2">Current Photos</p>
+                <div className="grid grid-cols-5 gap-3">
+                  {existingImages.map((url, i) => (
+                    <div key={url} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200">
+                      <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" sizes="20vw" />
+                      {i === 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gold-500/80 text-white text-[10px] text-center py-0.5 font-bold">MAIN</div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setExistingImages(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upload new photos */}
+            {existingImages.length + newPhotoFiles.length < 5 && (
+              <div>
+                {existingImages.length > 0 && <p className="text-xs font-semibold text-midnight-500 uppercase tracking-wider mb-2">Add More Photos</p>}
+                <div
+                  onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setIsDragOver(false); handlePhotoSelect(e.dataTransfer.files) }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${isDragOver ? 'border-gold-400 bg-gold-50' : 'border-gray-200 hover:border-gold-300 hover:bg-warm-50'}`}
+                >
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handlePhotoSelect(e.target.files)} />
+                  <Camera className="w-8 h-8 text-gold-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-midnight-700 mb-1">
+                    {isDragOver ? 'Drop images here...' : 'Drag & drop or click to add photos'}
+                  </p>
+                  <p className="text-xs text-midnight-400">{existingImages.length + newPhotoFiles.length}/5 photos · JPG, PNG, WebP</p>
+                </div>
+              </div>
+            )}
+
+            {/* New photo previews */}
+            {newPhotoPreviews.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-midnight-500 uppercase tracking-wider mb-2">New Photos (will be uploaded on save)</p>
+                <div className="grid grid-cols-5 gap-3">
+                  {newPhotoPreviews.map((src, i) => (
+                    <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border-2 border-gold-300">
+                      <Image src={src} alt={`New ${i + 1}`} fill className="object-cover" sizes="20vw" unoptimized />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
+                          setNewPhotoPreviews(prev => prev.filter((_, idx) => idx !== i))
+                        }}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {uploadingPhotos && (
+              <div className="flex items-center gap-2 text-sm text-gold-600">
+                <Loader2 className="w-4 h-4 animate-spin" /> Uploading photos...
+              </div>
+            )}
           </section>
 
           {/* Visibility */}

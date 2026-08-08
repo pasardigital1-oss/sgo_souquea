@@ -18,7 +18,22 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('vendor-documents', 'vendor-documents', false)
 ON CONFLICT (id) DO NOTHING;
 
--- 4. Storage policy: vendor bisa upload dokumen sendiri
+-- 4. Buat bucket untuk used parts listing images (public)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('used-parts-images', 'used-parts-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 5. Storage policy: siapapun bisa upload used-parts images (authenticated)
+CREATE POLICY "used_parts_upload" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'used-parts-images'
+    AND auth.uid() IS NOT NULL
+  );
+
+CREATE POLICY "used_parts_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'used-parts-images');
+
+-- 6. Storage policy: vendor bisa upload dokumen sendiri
 CREATE POLICY "vendor_upload_own_docs" ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'vendor-documents'
@@ -41,7 +56,7 @@ CREATE POLICY "admin_read_vendor_docs" ON storage.objects
     )
   );
 
--- 5. Verify
+-- 7. Verify
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'orders'

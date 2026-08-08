@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, MapPin, Clock, Tag, Car, Phone,
-  Filter, X, CheckCircle, AlertCircle, Loader2, Package
+  Filter, X, CheckCircle, AlertCircle, Loader2, Package, Camera, UploadCloud
 } from 'lucide-react'
 import { formatAED, formatDate } from '@/lib/utils'
 import type { Emirates } from '@/types'
@@ -62,6 +63,12 @@ export default function UsedPartsPage() {
   const [postSuccess, setPostSuccess] = useState(false)
   const [postError, setPostError] = useState('')
 
+  // Image upload state
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -114,6 +121,39 @@ export default function UsedPartsPage() {
   const setF = (field: keyof typeof form, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }))
 
+  const handlePhotoSelect = (files: FileList | null) => {
+    if (!files) return
+    const newFiles = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, 4 - photoFiles.length)
+    if (newFiles.length === 0) return
+    const combined = [...photoFiles, ...newFiles].slice(0, 4)
+    setPhotoFiles(combined)
+    const previews: string[] = []
+    combined.forEach((file, i) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        previews[i] = e.target?.result as string
+        if (previews.filter(Boolean).length === combined.length) setPhotoPreviews([...previews])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const uploadPhotos = async (userId: string): Promise<string[]> => {
+    if (photoFiles.length === 0) return []
+    const supabase = createClient()
+    const urls: string[] = []
+    for (const file of photoFiles) {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('used-parts-images').upload(path, file, { upsert: false })
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('used-parts-images').getPublicUrl(path)
+        urls.push(publicUrl)
+      }
+    }
+    return urls
+  }
+
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.title || !form.price_aed || !form.contact_name || !form.contact_phone) {
@@ -124,6 +164,9 @@ export default function UsedPartsPage() {
     setPostError('')
 
     const { data: { user } } = await supabase.auth.getUser()
+
+    // Upload photos if any
+    const imageUrls = user ? await uploadPhotos(user.id) : []
 
     const { error } = await supabase.from('used_parts_listings').insert({
       user_id: user?.id ?? null,
@@ -137,7 +180,7 @@ export default function UsedPartsPage() {
       emirate: form.emirate,
       contact_name: form.contact_name.trim(),
       contact_phone: form.contact_phone.trim(),
-      images: [],
+      images: imageUrls,
       is_active: true,
     })
 
@@ -150,6 +193,8 @@ export default function UsedPartsPage() {
     setPostSuccess(true)
     setShowPostForm(false)
     setPostLoading(false)
+    setPhotoFiles([])
+    setPhotoPreviews([])
     loadListings()
 
     setTimeout(() => setPostSuccess(false), 4000)
@@ -269,6 +314,47 @@ export default function UsedPartsPage() {
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-gold-400" />
                   </div>
                 </div>
+                {/* Photo Upload */}
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <label className="text-sm font-semibold text-midnight-700">
+                    Photos <span className="text-midnight-400 font-normal">(optional, max 4)</span>
+                  </label>
+                  <div
+                    onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setIsDragOver(false); handlePhotoSelect(e.dataTransfer.files) }}
+                    onClick={() => photoFiles.length < 4 && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                      isDragOver ? 'border-gold-400 bg-gold-50' : 'border-gray-200 hover:border-gold-300'
+                    } ${photoFiles.length >= 4 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handlePhotoSelect(e.target.files)} />
+                    <Camera className="w-6 h-6 text-gold-400 mx-auto mb-1" />
+                    <p className="text-xs text-midnight-500">
+                      {photoFiles.length >= 4 ? 'Max 4 photos reached' : `Click or drag photos · ${photoFiles.length}/4`}
+                    </p>
+                  </div>
+                  {photoPreviews.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {photoPreviews.map((src, i) => (
+                        <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
+                          <Image src={src} alt={`Photo ${i+1}`} fill className="object-cover" sizes="25vw" unoptimized />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
+                              setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i))
+                            }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setShowPostForm(false)}
                     className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-midnight-600 hover:bg-gray-50">
@@ -330,9 +416,25 @@ export default function UsedPartsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {listings.map(listing => (
               <div key={listing.id} className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden hover:border-gold-200 transition-all">
-                {/* Image placeholder */}
-                <div className="h-40 bg-gradient-to-br from-midnight-900 to-midnight-700 flex items-center justify-center">
-                  <Car className="w-12 h-12 text-gold-500/40" />
+                {/* Image */}
+                <div className="h-40 bg-gradient-to-br from-midnight-900 to-midnight-700 flex items-center justify-center overflow-hidden relative">
+                  {listing.images && listing.images.length > 0 ? (
+                    <Image
+                      src={listing.images[0]}
+                      alt={listing.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Car className="w-12 h-12 text-gold-500/40" />
+                  )}
+                  {listing.images && listing.images.length > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+                      +{listing.images.length - 1} photos
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
