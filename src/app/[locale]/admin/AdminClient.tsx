@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import {
   Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock,
-  LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter, Settings, Globe, Phone, Mail, MapPin
+  LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter,
+  Settings, Globe, Phone, Mail, MapPin, FileText, Save
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -25,7 +26,7 @@ interface Props {
   stats: Stats
 }
 
-type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings'
+type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings' | 'pages'
 
 // ─── Payment gateway definitions ─────────────────────────────────────────────
 const GATEWAYS = [
@@ -72,8 +73,14 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all')
 
-  // ── Site settings state ──────────────────────────────────────────────────────
-  const [siteSettings, setSiteSettings] = useState({
+  // ── Pages state ───────────────────────────────────────────────────────────
+  const [pages, setPages] = useState<{slug: string; title: string; content: string}[]>([])
+  const [activePage, setActivePage] = useState<string>('privacy')
+  const [pageContent, setPageContent] = useState<string>('')
+  const [pageTitle, setPageTitle] = useState<string>('')
+  const [pagesLoading, setPagesLoading] = useState(false)
+  const [pagesSaved, setPagesSaved] = useState(false)
+  const [pagesLoaded, setPagesLoaded] = useState(false)  const [siteSettings, setSiteSettings] = useState({
     platform_name: 'SGO-SouqUAE',
     tagline: "UAE's Premium Auto Parts Marketplace",
     phone: '+971 XX XXX XXXX',
@@ -130,7 +137,41 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     if (activeTab === 'payment') loadPaymentSettings()
     if (activeTab === 'orders') loadAdminOrders()
     if (activeTab === 'settings') loadSiteSettings()
+    if (activeTab === 'pages') loadPages()
   }, [activeTab, loadPaymentSettings, loadAdminOrders])
+
+  const loadPages = useCallback(async () => {
+    if (pagesLoaded) return
+    const { data } = await supabase.from('pages').select('slug, title, content').order('slug')
+    if (data && data.length > 0) {
+      setPages(data)
+      setActivePage(data[0].slug)
+      setPageTitle(data[0].title)
+      setPageContent(data[0].content)
+    }
+    setPagesLoaded(true)
+  }, [pagesLoaded, supabase])
+
+  const handleSelectPage = (slug: string) => {
+    const page = pages.find(p => p.slug === slug)
+    if (page) {
+      setActivePage(slug)
+      setPageTitle(page.title)
+      setPageContent(page.content)
+    }
+  }
+
+  const handleSavePage = async () => {
+    setPagesLoading(true)
+    await supabase.from('pages').upsert(
+      { slug: activePage, title: pageTitle, content: pageContent, updated_at: new Date().toISOString() },
+      { onConflict: 'slug' }
+    )
+    setPages(prev => prev.map(p => p.slug === activePage ? { ...p, title: pageTitle, content: pageContent } : p))
+    setPagesLoading(false)
+    setPagesSaved(true)
+    setTimeout(() => setPagesSaved(false), 3000)
+  }
 
   const loadSiteSettings = useCallback(async () => {
     if (settingsLoaded) return
@@ -213,6 +254,7 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     { id: 'all_vendors', icon: Store, label: ta('vendors') },
     { id: 'orders', icon: ShoppingBag, label: 'Orders' },
     { id: 'payment', icon: CreditCard, label: 'Payment' },
+    { id: 'pages', icon: FileText, label: 'Pages' },
     { id: 'settings', icon: Settings, label: 'Site Settings' },
   ]
 
@@ -612,6 +654,71 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
               }
               {paymentSaved ? 'Settings Saved!' : 'Save Settings'}
             </button>
+          </div>
+        )}
+
+        {/* ── Pages Editor ──────────────────────────────────────────────── */}
+        {activeTab === 'pages' && (
+          <div className="space-y-5 max-w-4xl">
+            {/* Page selector */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { slug: 'privacy', label: '🔒 Privacy Policy' },
+                { slug: 'returns', label: '🔄 Return Policy' },
+                { slug: 'terms', label: '📄 Terms of Service' },
+                { slug: 'help', label: '❓ Help Center' },
+              ].map(p => (
+                <button key={p.slug} onClick={() => handleSelectPage(p.slug)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    activePage === p.slug
+                      ? 'gold-gradient text-midnight-900'
+                      : 'border border-gray-200 bg-white text-midnight-600 hover:border-gold-300'
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Page Title</label>
+                <input type="text" value={pageTitle}
+                  onChange={e => setPageTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold focus:outline-none focus:border-gold-400" />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Content</label>
+                  <span className="text-xs text-midnight-400">Supports Markdown: ## Heading, ### Subheading, - List, **Bold**</span>
+                </div>
+                <textarea
+                  value={pageContent}
+                  onChange={e => setPageContent(e.target.value)}
+                  rows={25}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm font-mono focus:outline-none focus:border-gold-400 resize-y"
+                  placeholder="Write page content here using Markdown..."
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <p className="text-xs text-midnight-400">
+                  Changes will be visible immediately on the website after saving.
+                </p>
+                <button onClick={handleSavePage} disabled={pagesLoading}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 disabled:opacity-60">
+                  {pagesLoading
+                    ? <span className="w-4 h-4 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                    : <Save className="w-4 h-4" />}
+                  {pagesSaved ? 'Saved!' : 'Save Page'}
+                </button>
+              </div>
+            </div>
+
+            {/* Preview hint */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
+              💡 Preview: <strong>/en/{activePage}</strong> — Open in new tab to see the result after saving.
+            </div>
           </div>
         )}
 
