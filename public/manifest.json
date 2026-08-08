@@ -1,12 +1,16 @@
 {
-  "name": "SGO-SouqUAE",
+  "name": "SGO-SouqUAE — Auto Parts",
   "short_name": "SouqUAE",
-  "description": "Premium Auto Parts Marketplace UAE",
+  "description": "UAE's Premium Auto Parts Marketplace. Find OEM & aftermarket parts for every vehicle. Fast delivery across all Emirates.",
   "start_url": "/en",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
+  "background_color": "#1a1a2e",
   "theme_color": "#c9a84c",
   "orientation": "portrait-primary",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["shopping", "automotive"],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
@@ -21,7 +25,22 @@
       "purpose": "maskable any"
     }
   ],
-  "categories": ["shopping", "automotive"],
-  "lang": "en",
-  "dir": "ltr"
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Browse Catalog",
+      "url": "/en/catalog",
+      "description": "Browse spare parts catalog"
+    },
+    {
+      "name": "Request a Part",
+      "url": "/en/rfq",
+      "description": "Request a quote from vendors"
+    },
+    {
+      "name": "VIN Decoder",
+      "url": "/en/vin",
+      "description": "Decode your vehicle VIN"
+    }
+  ]
 }
