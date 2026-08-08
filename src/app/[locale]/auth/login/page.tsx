@@ -126,17 +126,10 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-100" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-midnight-400">{t('orContinueWith')}</span>
-            </div>
-          </div>
+          {/* Divider & Google OAuth — handled by UAE team after domain setup */}
 
-          {/* Google login */}
+          {/* Google login — uncomment when Google OAuth is configured in Supabase (done by UAE team) */}
+          {/* 
           <button
             onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${locale}` } })}
             className="w-full py-3 rounded-xl border border-gray-200 text-midnight-700 font-medium text-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
@@ -149,6 +142,7 @@ export default function LoginPage() {
             </svg>
             Google
           </button>
+          */}
 
           {/* Register link */}
           <p className="text-center text-sm text-midnight-500 mt-5">
