@@ -3,6 +3,9 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPendingVendors, getAllVendors } from '@/lib/supabase/queries'
 import AdminClient from './AdminClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type Props = { params: Promise<{ locale: string }> }
 
 export default async function AdminPage({ params }: Props) {
