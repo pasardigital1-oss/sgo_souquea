@@ -80,7 +80,10 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
   const [pageTitle, setPageTitle] = useState<string>('')
   const [pagesLoading, setPagesLoading] = useState(false)
   const [pagesSaved, setPagesSaved] = useState(false)
-  const [pagesLoaded, setPagesLoaded] = useState(false)  const [siteSettings, setSiteSettings] = useState({
+  const [pagesLoaded, setPagesLoaded] = useState(false)
+
+  // ── Site settings state ──────────────────────────────────────────────────────
+  const [siteSettings, setSiteSettings] = useState({
     platform_name: 'SGO-SouqUAE',
     tagline: "UAE's Premium Auto Parts Marketplace",
     phone: '+971 XX XXX XXXX',
