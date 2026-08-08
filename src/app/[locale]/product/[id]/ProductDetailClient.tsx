@@ -11,6 +11,8 @@ import ProductCard from '@/components/shared/ProductCard'
 import ReviewForm from './ReviewForm'
 import { addVAT, formatAED } from '@/lib/utils'
 import type { SparePart } from '@/types'
+import { useCartStore } from '@/store/cartStore'
+import { useRouter } from 'next/navigation'
 
 interface Props {
   product: SparePart & { part_compatibility?: any[]; vendors?: any }
@@ -21,18 +23,47 @@ interface Props {
 export default function ProductDetailClient({ product, related, locale }: Props) {
   const tc = useTranslations('common')
   const tp = useTranslations('product')
+  const router = useRouter()
+  const addItem = useCartStore((state) => state.addItem)
 
   const [activeImage, setActiveImage] = useState(0)
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'compatibility' | 'reviews'>('description')
   const [quantity, setQuantity] = useState(1)
+  const [addedToCart, setAddedToCart] = useState(false)
 
   const prices = product.inventory?.map((i: any) => i.price_aed) || []
   const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0
   const totalStock = product.inventory?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0
   const { vatAmount, total } = addVAT(lowestPrice)
+  const bestInventory = product.inventory?.find((i: any) => i.price_aed === lowestPrice) || product.inventory?.[0]
 
   const images = product.images?.length > 0 ? product.images : []
   const displayName = locale === 'ar' && product.name_ar ? product.name_ar : product.name
+
+  const handleAddToCart = () => {
+    if (!bestInventory || totalStock === 0) return
+    addItem({
+      inventory_id: bestInventory.id,
+      part_id: product.id,
+      name: product.name,
+      name_ar: product.name_ar ?? undefined,
+      part_number: product.part_number,
+      brand: product.brand ?? undefined,
+      image: images[0] ?? undefined,
+      price_aed: lowestPrice,
+      quantity,
+      vendor_id: bestInventory.vendor_id,
+      vendor_name: product.vendors?.business_name ?? '',
+      max_stock: bestInventory.quantity,
+    })
+    setAddedToCart(true)
+    setTimeout(() => setAddedToCart(false), 2500)
+  }
+
+  const handleBuyNow = () => {
+    handleAddToCart()
+    router.push(`/${locale}/cart`)
+  }
 
   return (
     <div className="min-h-screen bg-warm-50">
@@ -198,17 +229,28 @@ export default function ProductDetailClient({ product, related, locale }: Props)
                   </button>
                 </div>
 
-                <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-gold-400 text-gold-700 font-bold text-sm hover:bg-gold-50 transition-colors">
-                  <ShoppingCart className="w-4 h-4" />
-                  {tc('addToCart')}
+                <button
+                  onClick={handleAddToCart}
+                  disabled={totalStock === 0}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                    addedToCart
+                      ? 'border-green-400 text-green-700 bg-green-50'
+                      : 'border-gold-400 text-gold-700 hover:bg-gold-50'
+                  }`}
+                >
+                  {addedToCart
+                    ? <><CheckCircle className="w-4 h-4" /> Added to Cart!</>
+                    : <><ShoppingCart className="w-4 h-4" /> {tc('addToCart')}</>
+                  }
                 </button>
 
-                <Link
-                  href={`/${locale}/cart`}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 transition-opacity"
+                <button
+                  onClick={handleBuyNow}
+                  disabled={totalStock === 0}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-40"
                 >
                   {tc('buyNow')}
-                </Link>
+                </button>
               </div>
             )}
 

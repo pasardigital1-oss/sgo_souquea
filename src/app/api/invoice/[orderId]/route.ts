@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
 })
 
 // ─── PDF Document Component ───────────────────────────────────────────────────
-function InvoiceDocument({ order }: { order: any }) {
+function InvoiceDocument({ order, platformTRN }: { order: any; platformTRN: string }) {
   const year = new Date(order.created_at).getFullYear()
   const invoiceNumber = `AS-INV-${year}-${order.order_number.split('-').pop() ?? order.order_number}`
   const invoiceDate = new Date(order.created_at).toLocaleDateString('en-AE', {
@@ -157,7 +157,7 @@ function InvoiceDocument({ order }: { order: any }) {
           null,
           React.createElement(Text, { style: styles.invoiceLabel }, 'TAX INVOICE'),
           React.createElement(Text, { style: styles.invoiceNumber }, invoiceNumber),
-          React.createElement(Text, { style: styles.trnText }, 'TRN: 100-XXXXXXX-XXXXX-XX (Placeholder)')
+          React.createElement(Text, { style: styles.trnText }, `TRN: ${platformTRN}`)
         )
       ),
 
@@ -298,7 +298,15 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
-  const pdfBuffer = await renderToBuffer(React.createElement(InvoiceDocument, { order }) as unknown as React.ReactElement<import('@react-pdf/renderer').DocumentProps>)
+  // Get platform TRN from site_settings
+  const { data: trnSetting } = await supabase
+    .from('site_settings')
+    .select('value')
+    .eq('key', 'vat_trn')
+    .single()
+  const platformTRN = trnSetting?.value || 'Pending UAE Registration'
+
+  const pdfBuffer = await renderToBuffer(React.createElement(InvoiceDocument, { order, platformTRN }) as unknown as React.ReactElement<import('@react-pdf/renderer').DocumentProps>)
 
   const year = new Date(order.created_at).getFullYear()
   const filename = `AS-INV-${year}-${order.order_number}.pdf`

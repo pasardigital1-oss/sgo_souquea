@@ -123,6 +123,7 @@ export default function CheckoutPage() {
         customer_id: user.id,
         vendor_id: vendorId,
         status: 'pending',
+        payment_method: selectedPayment,
         subtotal_aed: sub,
         vat_amount_aed: vat,
         shipping_fee_aed: 0,

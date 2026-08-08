@@ -12,6 +12,25 @@ interface Props {
   fallbackTitle: string
 }
 
+const FALLBACK_CONTENT: Record<string, { title: string; content: string }> = {
+  privacy: {
+    title: 'Privacy Policy',
+    content: `## Privacy Policy\n\nLast updated: August 2026\n\n### Information We Collect\nWe collect information you provide directly to us, such as your name, email address, phone number, and shipping address when you create an account or place an order.\n\n### How We Use Your Information\nWe use the information we collect to process your orders, send order confirmations and updates, provide customer support, and improve our services.\n\n### Information Sharing\nWe do not sell or rent your personal information to third parties. We may share your information with vendors to fulfill your orders and with logistics partners to deliver your purchases.\n\n### Data Security\nWe implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.\n\n### Contact Us\nIf you have questions about this Privacy Policy, please contact us at support@sgosouquae.com`,
+  },
+  terms: {
+    title: 'Terms of Service',
+    content: `## Terms of Service\n\nLast updated: August 2026\n\n### Acceptance of Terms\nBy using SGO-SouqUAE, you agree to these Terms of Service. If you do not agree, please do not use our platform.\n\n### Platform Description\nSGO-SouqUAE is a marketplace connecting buyers and sellers of auto parts in the UAE. We facilitate transactions but are not a party to the sale.\n\n### User Responsibilities\n- Provide accurate information when creating your account\n- Keep your account credentials secure\n- Use the platform only for lawful purposes\n- Comply with UAE laws and regulations\n\n### Vendor Obligations\nVendors must hold a valid UAE trade license, accurately describe their products, and fulfill orders promptly.\n\n### Limitation of Liability\nSGO-SouqUAE is not liable for the quality, safety, or legality of items listed, the accuracy of listings, or the ability of sellers to sell or buyers to pay.\n\n### Contact\nsupport@sgosouquae.com`,
+  },
+  returns: {
+    title: 'Return & Refund Policy',
+    content: `## Return & Refund Policy\n\nLast updated: August 2026\n\n### Return Eligibility\nItems may be returned within 7 days of delivery if they are:\n- Defective or damaged upon arrival\n- Significantly different from the product description\n- Incorrect parts delivered\n\n### Return Process\n1. Contact the vendor through your order page within 7 days\n2. Describe the issue and attach photos\n3. Wait for vendor confirmation (within 48 hours)\n4. Ship the item back with the provided return label\n\n### Refund Timeline\nRefunds are processed within 5-7 business days after the vendor receives the return. Refunds are issued to the original payment method.\n\n### Non-Returnable Items\n- Electrical components that have been installed\n- Items damaged due to improper installation\n- Items returned after 7 days\n\n### Contact\nFor return assistance: support@sgosouquae.com`,
+  },
+  help: {
+    title: 'Help Center',
+    content: `## Help Center\n\n### Getting Started\n\n**How do I create an account?**\nClick "Sign Up" and enter your name, email, and password. You'll receive a confirmation email.\n\n**How do I search for parts?**\nUse the search bar on the catalog page, or filter by vehicle make/model, category, or part type. You can also use our VIN decoder to find compatible parts.\n\n### Ordering\n\n**How do I place an order?**\nAdd items to your cart, proceed to checkout, enter your delivery address, select a payment method, and click "Place Order".\n\n**Can I cancel my order?**\nOrders can only be cancelled before the vendor confirms them. Contact the vendor immediately if you need to cancel.\n\n### Delivery\n\n**How long does delivery take?**\nDelivery within the same emirate typically takes 1-2 business days. Cross-emirate delivery takes 2-4 business days.\n\n### Contact Support\n📧 support@sgosouquae.com\n📞 +971 XX XXX XXXX\n⏰ Sunday–Thursday, 9am–6pm GST`,
+  },
+}
+
 export default function StaticPage({ slug, icon, fallbackTitle }: Props) {
   const [title, setTitle] = useState(fallbackTitle)
   const [content, setContent] = useState('')
@@ -21,9 +40,16 @@ export default function StaticPage({ slug, icon, fallbackTitle }: Props) {
     const supabase = createClient()
     supabase.from('pages').select('title, content').eq('slug', slug).single()
       .then(({ data }) => {
-        if (data) {
+        if (data?.content) {
           setTitle(data.title)
           setContent(data.content)
+        } else {
+          // Use fallback content if DB is empty
+          const fallback = FALLBACK_CONTENT[slug]
+          if (fallback) {
+            setTitle(fallback.title)
+            setContent(fallback.content)
+          }
         }
         setLoading(false)
       })

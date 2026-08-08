@@ -478,13 +478,131 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
           )}
 
           {/* Reports tab */}
-          {activeTab === 'reports' && (
-            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-8 text-center">
-              <BarChart3 className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <h3 className="font-heading text-lg font-semibold text-midnight-700 mb-2">Reports & Analytics</h3>
-              <p className="text-midnight-400 text-sm">Detailed reports coming soon.</p>
-            </div>
-          )}
+          {activeTab === 'reports' && (() => {
+            const delivered = orderList.filter(o => o.status === 'delivered')
+            const pending = orderList.filter(o => o.status === 'pending')
+            const processing = orderList.filter(o => ['confirmed','processing','shipped'].includes(o.status))
+            const cancelled = orderList.filter(o => o.status === 'cancelled')
+            const totalRevenue = delivered.reduce((s, o) => s + (o.total_aed ?? 0), 0)
+            const totalVAT = delivered.reduce((s, o) => s + (o.vat_amount_aed ?? 0), 0)
+            const avgOrder = delivered.length > 0 ? totalRevenue / delivered.length : 0
+
+            // Monthly breakdown (last 6 months)
+            const monthlyMap: Record<string, number> = {}
+            delivered.forEach(o => {
+              const m = new Date(o.created_at).toLocaleDateString('en-AE', { month: 'short', year: '2-digit' })
+              monthlyMap[m] = (monthlyMap[m] ?? 0) + (o.total_aed ?? 0)
+            })
+            const months = Object.entries(monthlyMap).slice(-6)
+            const maxRevenue = Math.max(...months.map(([, v]) => v), 1)
+
+            return (
+              <div className="space-y-5">
+                {/* KPI cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Revenue', value: `AED ${totalRevenue.toFixed(2)}`, sub: `${delivered.length} delivered orders`, color: 'text-gold-600 bg-gold-50' },
+                    { label: 'VAT Collected (5%)', value: `AED ${totalVAT.toFixed(2)}`, sub: 'Payable to FTA', color: 'text-blue-600 bg-blue-50' },
+                    { label: 'Avg Order Value', value: `AED ${avgOrder.toFixed(2)}`, sub: 'Per delivered order', color: 'text-purple-600 bg-purple-50' },
+                    { label: 'Pending Orders', value: String(pending.length), sub: `${processing.length} in progress`, color: 'text-orange-600 bg-orange-50' },
+                  ].map(card => (
+                    <div key={card.label} className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-3 ${card.color}`}>
+                        <BarChart3 className="w-4 h-4" />
+                      </div>
+                      <p className="font-heading font-bold text-lg text-midnight-900">{card.value}</p>
+                      <p className="text-xs font-semibold text-midnight-700 mt-0.5">{card.label}</p>
+                      <p className="text-xs text-midnight-400 mt-0.5">{card.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Order status breakdown */}
+                <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+                  <h3 className="font-heading font-semibold text-midnight-900 mb-4">Order Status Breakdown</h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Delivered', count: delivered.length, color: 'bg-green-500' },
+                      { label: 'In Progress', count: processing.length, color: 'bg-blue-500' },
+                      { label: 'Pending', count: pending.length, color: 'bg-yellow-500' },
+                      { label: 'Cancelled', count: cancelled.length, color: 'bg-red-400' },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-center gap-3">
+                        <span className="text-sm text-midnight-600 w-24">{row.label}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-2">
+                          <div
+                            className={`${row.color} h-2 rounded-full transition-all`}
+                            style={{ width: orderList.length > 0 ? `${(row.count / orderList.length) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-midnight-900 w-6 text-right">{row.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Monthly revenue bar chart */}
+                {months.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+                    <h3 className="font-heading font-semibold text-midnight-900 mb-4">Monthly Revenue</h3>
+                    <div className="flex items-end gap-3 h-32">
+                      {months.map(([month, revenue]) => (
+                        <div key={month} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-xs text-midnight-600 font-medium">AED {(revenue/1000).toFixed(1)}k</span>
+                          <div
+                            className="w-full gold-gradient rounded-t-lg"
+                            style={{ height: `${(revenue / maxRevenue) * 80}px`, minHeight: '4px' }}
+                          />
+                          <span className="text-[10px] text-midnight-400">{month}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top products */}
+                {products.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden">
+                    <div className="p-5 border-b border-gray-100">
+                      <h3 className="font-heading font-semibold text-midnight-900">Your Products</h3>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="text-start px-4 py-3 font-semibold text-midnight-600">Product</th>
+                          <th className="text-start px-4 py-3 font-semibold text-midnight-600">Part #</th>
+                          <th className="text-start px-4 py-3 font-semibold text-midnight-600">Stock</th>
+                          <th className="text-start px-4 py-3 font-semibold text-midnight-600">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {products.slice(0, 10).map((p: any) => {
+                          const stock = p.inventory?.reduce((s: number, i: any) => s + i.quantity, 0) ?? 0
+                          const isLow = p.inventory?.some((i: any) => i.quantity <= (i.low_stock_alert ?? 5))
+                          return (
+                            <tr key={p.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-midnight-900 max-w-[200px] truncate">{p.name}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-midnight-500">{p.part_number}</td>
+                              <td className="px-4 py-3 text-midnight-700">{stock}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  !p.is_active ? 'bg-gray-100 text-gray-500' :
+                                  isLow ? 'bg-red-50 text-red-600 border border-red-200' :
+                                  'bg-green-50 text-green-700 border border-green-200'
+                                }`}>
+                                  {!p.is_active ? 'Inactive' : isLow ? 'Low Stock' : 'Active'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </main>
     </div>
