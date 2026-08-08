@@ -217,9 +217,14 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     const { data } = await supabase.from('pages').select('slug, title, content').order('slug')
     if (data && data.length > 0) {
       setPages(data)
-      setActivePage(data[0].slug)
+      // Set first page as active
+      const firstSlug = data[0].slug
+      setActivePage(firstSlug)
       setPageTitle(data[0].title)
       setPageContent(data[0].content)
+    } else {
+      // Data kosong — reset agar bisa retry
+      setPagesLoaded(false)
     }
     setPagesLoaded(true)
   }, [pagesLoaded, supabase])
@@ -878,7 +883,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         {activeTab === 'pages' && (
           <div className="space-y-5 max-w-4xl">
             {/* Page selector */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               {[
                 { slug: 'privacy', label: '🔒 Privacy Policy' },
                 { slug: 'returns', label: '🔄 Return Policy' },
@@ -894,6 +899,12 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                   {p.label}
                 </button>
               ))}
+              {pages.length === 0 && (
+                <button onClick={() => { setPagesLoaded(false); loadPages() }}
+                  className="px-3 py-2 rounded-xl text-xs border border-gray-200 text-midnight-500 hover:bg-gray-50">
+                  ↻ Reload
+                </button>
+              )}
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6 space-y-4">
