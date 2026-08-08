@@ -30,12 +30,12 @@ GRANT ALL ON payment_settings TO service_role;
 GRANT ALL ON vat_logs TO authenticated;
 GRANT ALL ON vat_logs TO service_role;
 
--- Service role needs full access for invoice API
-GRANT SELECT ON orders TO service_role;
-GRANT SELECT ON order_items TO service_role;
-GRANT SELECT ON profiles TO service_role;
-GRANT SELECT ON spare_parts TO service_role;
-GRANT SELECT ON vendors TO service_role;
+-- Service role needs full access for invoice API + admin operations
+GRANT ALL ON orders TO service_role;
+GRANT ALL ON order_items TO service_role;
+GRANT ALL ON profiles TO service_role;
+GRANT ALL ON spare_parts TO service_role;
+GRANT ALL ON vendors TO service_role;
 
 -- Also grant sequences for INSERT
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;

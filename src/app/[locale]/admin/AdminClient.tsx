@@ -52,11 +52,43 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
   const ta = useTranslations('admin')
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  // Initialize from SSR props, then refresh via API for real-time data
   const [vendors, setVendors] = useState(pendingVendors)
+  const [vendorsList, setVendorsList] = useState(allVendors)
+  const [vendorsLoading, setVendorsLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const isSuperAdmin = adminRole === 'super_admin'
+
+  // Fetch latest vendor data from API (uses service role, always fresh)
+  const refreshVendors = useCallback(async () => {
+    setVendorsLoading(true)
+    try {
+      const res = await fetch('/api/admin/vendors')
+      if (res.ok) {
+        const json = await res.json()
+        setVendors(json.pendingVendors ?? [])
+        setVendorsList(json.allVendors ?? [])
+      }
+    } catch (err) {
+      console.error('Failed to refresh vendors', err)
+    } finally {
+      setVendorsLoading(false)
+    }
+  }, [])
+
+  // Refresh vendors when tab is opened
+  useEffect(() => {
+    if (activeTab === 'pending_vendors' || activeTab === 'all_vendors' || activeTab === 'overview') {
+      refreshVendors()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Also refresh on mount to get latest data
+  useEffect(() => {
+    refreshVendors()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Admin Users state ────────────────────────────────────────────────────────
   const [adminUsers, setAdminUsers] = useState<any[]>([])
@@ -348,14 +380,23 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
 
   const handleVendorAction = async (vendorId: string, action: 'approved' | 'rejected') => {
     setActionLoading(vendorId)
-    await supabase.from('vendors').update({
-      status: action,
-      approved_at: action === 'approved' ? new Date().toISOString() : null,
-    }).eq('id', vendorId)
+    try {
+      const res = await fetch('/api/admin/vendors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendorId, action }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        console.error('Vendor action failed:', json.error)
+      }
+    } catch (err) {
+      console.error('Vendor action error', err)
+    }
 
-    setVendors(prev => prev.filter(v => v.id !== vendorId))
+    // Refresh vendor lists from DB
+    await refreshVendors()
     setActionLoading(null)
-    router.refresh()
   }
 
   const handleLogout = async () => {
@@ -470,7 +511,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: ta('totalUsers'), value: stats.totalUsers, icon: Users, color: 'text-blue-600 bg-blue-50' },
-                { label: ta('totalVendors'), value: stats.totalVendors, icon: Store, color: 'text-gold-600 bg-gold-50' },
+                { label: ta('totalVendors'), value: vendorsList.length || stats.totalVendors, icon: Store, color: 'text-gold-600 bg-gold-50' },
                 { label: ta('orders'), value: stats.totalOrders, icon: ShoppingBag, color: 'text-green-600 bg-green-50' },
                 { label: 'Products', value: stats.totalProducts, icon: Package, color: 'text-purple-600 bg-purple-50' },
               ].map(stat => {
@@ -502,7 +543,26 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         {/* Pending vendors */}
         {activeTab === 'pending_vendors' && (
           <div className="space-y-4">
-            {vendors.length === 0 ? (
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-midnight-700">
+                {vendors.length} pending application{vendors.length !== 1 ? 's' : ''}
+              </p>
+              <button
+                onClick={refreshVendors}
+                disabled={vendorsLoading}
+                className="text-xs px-3 py-1.5 rounded-xl border border-gray-200 text-midnight-500 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {vendorsLoading ? (
+                  <span className="w-3 h-3 border border-midnight-400 border-t-transparent rounded-full animate-spin" />
+                ) : '↻'} Refresh
+              </button>
+            </div>
+            {vendorsLoading && vendors.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center luxury-shadow">
+                <span className="w-8 h-8 border-2 border-gold-400 border-t-transparent rounded-full animate-spin inline-block mb-3" />
+                <p className="text-sm text-midnight-400">Loading...</p>
+              </div>
+            ) : vendors.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center luxury-shadow">
                 <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-3" />
                 <p className="font-semibold text-midnight-700">All caught up!</p>
@@ -563,6 +623,18 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         {/* All vendors */}
         {activeTab === 'all_vendors' && (
           <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <p className="text-sm font-semibold text-midnight-700">All Vendors ({vendorsList.length})</p>
+              <button
+                onClick={refreshVendors}
+                disabled={vendorsLoading}
+                className="text-xs px-3 py-1.5 rounded-xl border border-gray-200 text-midnight-500 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {vendorsLoading ? (
+                  <span className="w-3 h-3 border border-midnight-400 border-t-transparent rounded-full animate-spin" />
+                ) : '↻'} Refresh
+              </button>
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -574,9 +646,13 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {allVendors.length === 0 ? (
+                {vendorsLoading && vendorsList.length === 0 ? (
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-midnight-400">
+                    <span className="inline-block w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+                  </td></tr>
+                ) : vendorsList.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-10 text-center text-midnight-400">No vendors yet</td></tr>
-                ) : allVendors.map((vendor: any) => (
+                ) : vendorsList.map((vendor: any) => (
                   <tr key={vendor.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-midnight-900">{vendor.business_name}</p>
