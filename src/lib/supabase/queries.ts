@@ -1,4 +1,5 @@
 import { createClient } from './server'
+import { createServiceClient } from './server'
 import type { CatalogFilters } from '@/types'
 
 const ITEMS_PER_PAGE = 20
@@ -181,7 +182,7 @@ export async function getCategories(parentOnly = false) {
 // =============================================
 
 export async function getVendorByUserId(userId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('vendors')
     .select('*')
@@ -191,7 +192,7 @@ export async function getVendorByUserId(userId: string) {
 }
 
 export async function getVendorProducts(vendorId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('spare_parts')
     .select('*, inventory(id, price_aed, quantity, emirate), part_categories(name, name_ar)')
@@ -201,7 +202,7 @@ export async function getVendorProducts(vendorId: string) {
 }
 
 export async function getVendorOrders(vendorId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('orders')
     .select('*, order_items(*, spare_parts(name, images)), profiles(full_name, phone)')
@@ -215,7 +216,7 @@ export async function getVendorOrders(vendorId: string) {
 // =============================================
 
 export async function getCustomerOrders(customerId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('orders')
     .select('*, order_items(*, spare_parts(name, name_ar, images)), vendors(business_name)')
@@ -245,21 +246,21 @@ export async function getCartItems(userId: string) {
 }
 
 // =============================================
-// ADMIN QUERIES
+// ADMIN QUERIES — uses service client to bypass RLS
 // =============================================
 
 export async function getPendingVendors() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('vendors')
-    .select('*, profiles(full_name, email:id)')
+    .select('*, profiles(full_name)')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   return data || []
 }
 
 export async function getAllVendors() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('vendors')
     .select('*, profiles(full_name)')

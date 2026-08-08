@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPendingVendors, getAllVendors } from '@/lib/supabase/queries'
 import AdminClient from './AdminClient'
 
@@ -12,7 +12,9 @@ export default async function AdminPage({ params }: Props) {
 
   if (!user) redirect(`/${locale}/auth/login`)
 
-  const { data: profile } = await supabase
+  // Use service client to bypass RLS for admin profile check
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role, admin_role, full_name')
     .eq('id', user.id)
@@ -24,7 +26,6 @@ export default async function AdminPage({ params }: Props) {
 
   if (!isAdmin) redirect(`/${locale}`)
 
-  // Determine admin role — default to 'admin' if not set, bootstrap email = super_admin
   const adminRole: 'super_admin' | 'admin' =
     profile?.admin_role === 'super_admin' ||
     user.email === 'pasardigital1@gmail.com'
@@ -36,9 +37,16 @@ export default async function AdminPage({ params }: Props) {
     getAllVendors(),
   ])
 
-  const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-  const { count: totalOrders } = await supabase.from('orders').select('*', { count: 'exact', head: true })
-  const { count: totalProducts } = await supabase.from('spare_parts').select('*', { count: 'exact', head: true })
+  // Use service client for stats — bypasses RLS
+  const [
+    { count: totalUsers },
+    { count: totalOrders },
+    { count: totalProducts },
+  ] = await Promise.all([
+    serviceClient.from('profiles').select('*', { count: 'exact', head: true }),
+    serviceClient.from('orders').select('*', { count: 'exact', head: true }),
+    serviceClient.from('spare_parts').select('*', { count: 'exact', head: true }),
+  ])
 
   return (
     <AdminClient
