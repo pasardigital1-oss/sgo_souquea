@@ -1,32 +1,49 @@
-import { getTranslations, getLocale } from 'next-intl/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import { Mail, Phone, MapPin } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
-async function getSiteSettings() {
-  try {
-    const supabase = await createClient()
-    const { data } = await supabase.from('site_settings').select('key, value')
-    if (!data) return null
-    const obj: Record<string, string> = {}
-    data.forEach((row: { key: string; value: string }) => { obj[row.key] = row.value })
-    return obj
-  } catch {
-    return null
-  }
+interface SiteSettings {
+  phone: string
+  email: string
+  address: string
+  platform_name: string
+  tagline: string
 }
 
-export default async function Footer() {
-  const t = await getTranslations('nav')
-  const locale = await getLocale()
-  const year = new Date().getFullYear()
-  const settings = await getSiteSettings()
+const DEFAULTS: SiteSettings = {
+  phone: '+971 XX XXX XXXX',
+  email: 'support@sgosouquae.com',
+  address: 'Dubai, United Arab Emirates',
+  platform_name: 'SGO-SouqUAE',
+  tagline: "UAE's premium marketplace for genuine and aftermarket auto parts. Serving all 7 Emirates.",
+}
 
-  const phone = settings?.phone || '+971 XX XXX XXXX'
-  const email = settings?.email || 'support@sgosouquae.com'
-  const address = settings?.address || 'Dubai, United Arab Emirates'
-  const platformName = settings?.platform_name || 'SGO-SouqUAE'
-  const tagline = settings?.tagline || "UAE's premium marketplace for genuine and aftermarket auto parts. Serving all 7 Emirates."
+export default function Footer() {
+  const t = useTranslations('nav')
+  const locale = useLocale()
+  const year = new Date().getFullYear()
+  const [settings, setSettings] = useState<SiteSettings>(DEFAULTS)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('site_settings').select('key, value').then(({ data }) => {
+      if (!data || data.length === 0) return
+      const obj: any = {}
+      data.forEach((row: { key: string; value: string }) => { obj[row.key] = row.value || '' })
+      setSettings(prev => ({
+        ...prev,
+        phone: obj.phone || prev.phone,
+        email: obj.email || prev.email,
+        address: obj.address || prev.address,
+        platform_name: obj.platform_name || prev.platform_name,
+        tagline: obj.tagline || prev.tagline,
+      }))
+    })
+  }, [])
 
   return (
     <footer className="bg-midnight-900 text-midnight-300 border-t border-white/5">
@@ -42,30 +59,28 @@ export default async function Footer() {
               </div>
               <div>
                 <span className="font-heading font-bold text-white text-lg">
-                  {platformName.includes('SGO') ? (
-                    <>SGO<span className="gold-text">Souq</span>UAE</>
-                  ) : platformName}
+                  SGO<span className="gold-text">Souq</span>UAE
                 </span>
               </div>
             </div>
-            <p className="text-sm leading-relaxed text-midnight-400">{tagline}</p>
+            <p className="text-sm leading-relaxed text-midnight-400">{settings.tagline}</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
                 <MapPin className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                <span>{address}</span>
+                <span>{settings.address}</span>
               </div>
-              {phone && phone !== '+971 XX XXX XXXX' && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Phone className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                  <a href={`tel:${phone}`} className="hover:text-gold-400 transition-colors">{phone}</a>
-                </div>
-              )}
-              {email && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Mail className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                  <a href={`mailto:${email}`} className="hover:text-gold-400 transition-colors">{email}</a>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-xs">
+                <Phone className="w-3.5 h-3.5 text-gold-500 shrink-0" />
+                <a href={`tel:${settings.phone}`} className="hover:text-gold-400 transition-colors">
+                  {settings.phone}
+                </a>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Mail className="w-3.5 h-3.5 text-gold-500 shrink-0" />
+                <a href={`mailto:${settings.email}`} className="hover:text-gold-400 transition-colors">
+                  {settings.email}
+                </a>
+              </div>
             </div>
           </div>
 
