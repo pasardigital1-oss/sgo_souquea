@@ -253,7 +253,7 @@ export async function getPendingVendors() {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('vendors')
-    .select('*, profiles(full_name, id)')
+    .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   if (error) console.error('getPendingVendors error:', error)
@@ -264,7 +264,7 @@ export async function getAllVendors() {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('vendors')
-    .select('*, profiles(full_name, id)')
+    .select('*')
     .order('created_at', { ascending: false })
   if (error) console.error('getAllVendors error:', error)
   return data || []

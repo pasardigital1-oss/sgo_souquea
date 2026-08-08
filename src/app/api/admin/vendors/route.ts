@@ -26,23 +26,40 @@ export async function GET() {
   // Fetch all vendors using service client (bypasses RLS)
   const { data: allVendors, error: e1 } = await service
     .from('vendors')
-    .select('*, profiles(full_name, id)')
+    .select('*')
     .order('created_at', { ascending: false })
 
   const { data: pendingVendors, error: e2 } = await service
     .from('vendors')
-    .select('*, profiles(full_name, id)')
+    .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
 
   if (e1 || e2) {
-    console.error('vendors fetch error', e1, e2)
-    return NextResponse.json({ error: 'DB error' }, { status: 500 })
+    console.error('vendors fetch error', e1?.message, e2?.message)
+    return NextResponse.json({ error: e1?.message || e2?.message || 'DB error' }, { status: 500 })
   }
 
+  // Fetch profile names separately for vendors that have them
+  const allUserIds = [...new Set([
+    ...(allVendors?.map(v => v.user_id) ?? [])
+  ])]
+
+  const { data: profilesData } = allUserIds.length > 0
+    ? await service.from('profiles').select('id, full_name').in('id', allUserIds)
+    : { data: [] }
+
+  const profileMap: Record<string, string> = {}
+  profilesData?.forEach((p: any) => { profileMap[p.id] = p.full_name })
+
+  const enriched = (list: any[]) => list.map(v => ({
+    ...v,
+    profiles: { full_name: profileMap[v.user_id] ?? null }
+  }))
+
   return NextResponse.json({
-    allVendors: allVendors ?? [],
-    pendingVendors: pendingVendors ?? [],
+    allVendors: enriched(allVendors ?? []),
+    pendingVendors: enriched(pendingVendors ?? []),
   })
 }
 
