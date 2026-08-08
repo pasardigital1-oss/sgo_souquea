@@ -99,7 +99,8 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     return `${now.getFullYear()}-Q${Math.ceil((now.getMonth() + 1) / 3)}`
   })
 
-  // ── Pages state ───────────────────────────────────────────────────────────  const [pages, setPages] = useState<{slug: string; title: string; content: string}[]>([])
+  // ── Pages state ───────────────────────────────────────────────────────────
+  const [pages, setPages] = useState<{slug: string; title: string; content: string}[]>([])
   const [activePage, setActivePage] = useState<string>('privacy')
   const [pageContent, setPageContent] = useState<string>('')
   const [pageTitle, setPageTitle] = useState<string>('')
