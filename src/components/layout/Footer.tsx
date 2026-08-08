@@ -94,11 +94,11 @@ export default function Footer() {
             <h4 className="font-heading font-semibold text-white mb-4 text-sm uppercase tracking-wider">Support</h4>
             <ul className="space-y-2">
               {[
-                { href: `/${locale}/rfq`, label: 'Help Center' },
+                { href: `/${locale}/help`, label: 'Help Center' },
                 { href: `/${locale}/orders`, label: 'Track Order' },
-                { href: `/${locale}/rfq`, label: 'Return Policy' },
-                { href: `/${locale}/rfq`, label: 'Privacy Policy' },
-                { href: `/${locale}/rfq`, label: 'Terms of Service' },
+                { href: `/${locale}/returns`, label: 'Return Policy' },
+                { href: `/${locale}/privacy`, label: 'Privacy Policy' },
+                { href: `/${locale}/terms`, label: 'Terms of Service' },
               ].map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="text-sm hover:text-gold-400 transition-colors">

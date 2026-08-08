@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import {
   Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock,
-  LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter
+  LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter, Settings, Globe, Phone, Mail, MapPin
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -25,7 +25,7 @@ interface Props {
   stats: Stats
 }
 
-type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders'
+type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings'
 
 // ─── Payment gateway definitions ─────────────────────────────────────────────
 const GATEWAYS = [
@@ -72,6 +72,24 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all')
 
+  // ── Site settings state ──────────────────────────────────────────────────────
+  const [siteSettings, setSiteSettings] = useState({
+    platform_name: 'SGO-SouqUAE',
+    tagline: "UAE's Premium Auto Parts Marketplace",
+    phone: '+971 XX XXX XXXX',
+    email: 'support@sgosouquae.com',
+    address: 'Dubai, United Arab Emirates',
+    whatsapp: '',
+    vat_trn: '',
+    trade_license: '',
+    facebook: '',
+    instagram: '',
+    twitter: '',
+  })
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
   // Load payment settings when tab is activated
   const loadPaymentSettings = useCallback(async () => {
     if (paymentLoaded) return
@@ -111,7 +129,32 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
   useEffect(() => {
     if (activeTab === 'payment') loadPaymentSettings()
     if (activeTab === 'orders') loadAdminOrders()
+    if (activeTab === 'settings') loadSiteSettings()
   }, [activeTab, loadPaymentSettings, loadAdminOrders])
+
+  const loadSiteSettings = useCallback(async () => {
+    if (settingsLoaded) return
+    const { data } = await supabase.from('site_settings').select('*')
+    if (data && data.length > 0) {
+      const obj: any = {}
+      data.forEach((row: any) => { obj[row.key] = row.value })
+      setSiteSettings(prev => ({ ...prev, ...obj }))
+    }
+    setSettingsLoaded(true)
+  }, [settingsLoaded, supabase])
+
+  const handleSaveSettings = async () => {
+    setSettingsLoading(true)
+    for (const [key, value] of Object.entries(siteSettings)) {
+      await supabase.from('site_settings').upsert(
+        { key, value: String(value) },
+        { onConflict: 'key' }
+      )
+    }
+    setSettingsLoading(false)
+    setSettingsSaved(true)
+    setTimeout(() => setSettingsSaved(false), 3000)
+  }
 
   const handleVendorAction = async (vendorId: string, action: 'approved' | 'rejected') => {
     setActionLoading(vendorId)
@@ -170,6 +213,7 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
     { id: 'all_vendors', icon: Store, label: ta('vendors') },
     { id: 'orders', icon: ShoppingBag, label: 'Orders' },
     { id: 'payment', icon: CreditCard, label: 'Payment' },
+    { id: 'settings', icon: Settings, label: 'Site Settings' },
   ]
 
   return (
@@ -567,6 +611,111 @@ export default function AdminClient({ locale, pendingVendors, allVendors, stats 
                 : <CheckCircle className="w-4 h-4" />
               }
               {paymentSaved ? 'Settings Saved!' : 'Save Settings'}
+            </button>
+          </div>
+        )}
+
+        {/* ── Site Settings ─────────────────────────────────────────────── */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6 max-w-2xl">
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+              <h2 className="font-heading font-semibold text-midnight-900 mb-5 flex items-center gap-2">
+                <Globe className="w-5 h-5 text-gold-500" /> Platform Information
+              </h2>
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Platform Name</label>
+                    <input type="text" value={siteSettings.platform_name}
+                      onChange={e => setSiteSettings(p => ({ ...p, platform_name: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Tagline</label>
+                    <input type="text" value={siteSettings.tagline}
+                      onChange={e => setSiteSettings(p => ({ ...p, tagline: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3 h-3" /> Address
+                  </label>
+                  <input type="text" value={siteSettings.address}
+                    onChange={e => setSiteSettings(p => ({ ...p, address: e.target.value }))}
+                    placeholder="Dubai, United Arab Emirates"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Phone className="w-3 h-3" /> Phone
+                    </label>
+                    <input type="text" value={siteSettings.phone}
+                      onChange={e => setSiteSettings(p => ({ ...p, phone: e.target.value }))}
+                      placeholder="+971 XX XXX XXXX"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">WhatsApp</label>
+                    <input type="text" value={siteSettings.whatsapp}
+                      onChange={e => setSiteSettings(p => ({ ...p, whatsapp: e.target.value }))}
+                      placeholder="+971 XX XXX XXXX"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Mail className="w-3 h-3" /> Support Email
+                    </label>
+                    <input type="email" value={siteSettings.email}
+                      onChange={e => setSiteSettings(p => ({ ...p, email: e.target.value }))}
+                      placeholder="support@sgosouquae.com"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">VAT / TRN Number</label>
+                    <input type="text" value={siteSettings.vat_trn}
+                      onChange={e => setSiteSettings(p => ({ ...p, vat_trn: e.target.value }))}
+                      placeholder="100XXXXXXXXX00003"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Trade License No.</label>
+                    <input type="text" value={siteSettings.trade_license}
+                      onChange={e => setSiteSettings(p => ({ ...p, trade_license: e.target.value }))}
+                      placeholder="DED-XXXX-XXXXXX"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Social Media */}
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+              <h2 className="font-heading font-semibold text-midnight-900 mb-5">Social Media</h2>
+              <div className="space-y-3">
+                {[
+                  { key: 'facebook', label: 'Facebook URL', placeholder: 'https://facebook.com/sgosouquae' },
+                  { key: 'instagram', label: 'Instagram URL', placeholder: 'https://instagram.com/sgosouquae' },
+                  { key: 'twitter', label: 'X / Twitter URL', placeholder: 'https://x.com/sgosouquae' },
+                ].map(field => (
+                  <div key={field.key} className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">{field.label}</label>
+                    <input type="url" value={(siteSettings as any)[field.key]}
+                      onChange={e => setSiteSettings(p => ({ ...p, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handleSaveSettings} disabled={settingsLoading}
+              className="flex items-center gap-2 px-8 py-3 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 disabled:opacity-60">
+              {settingsLoading
+                ? <span className="w-4 h-4 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                : <CheckCircle className="w-4 h-4" />}
+              {settingsSaved ? 'Settings Saved!' : 'Save Settings'}
             </button>
           </div>
         )}
