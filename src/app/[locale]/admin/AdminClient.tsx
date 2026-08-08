@@ -6,7 +6,8 @@ import Link from 'next/link'
 import {
   Users, Store, ShoppingBag, Package, CheckCircle, XCircle, Clock,
   LayoutDashboard, LogOut, AlertCircle, CreditCard, DollarSign, Filter,
-  Settings, Globe, Phone, Mail, MapPin, FileText, Save, UserCog, Shield, Trash2
+  Settings, Globe, Phone, Mail, MapPin, FileText, Save, UserCog, Shield, Trash2,
+  Download, TrendingUp, Receipt
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -28,7 +29,7 @@ interface Props {
   stats: Stats
 }
 
-type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings' | 'pages' | 'admin_users'
+type Tab = 'overview' | 'pending_vendors' | 'all_vendors' | 'payment' | 'orders' | 'settings' | 'pages' | 'admin_users' | 'vat_report'
 
 // ─── Payment gateway definitions ─────────────────────────────────────────────
 const GATEWAYS = [
@@ -89,8 +90,16 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all')
 
-  // ── Pages state ───────────────────────────────────────────────────────────
-  const [pages, setPages] = useState<{slug: string; title: string; content: string}[]>([])
+  // ── VAT Report state ──────────────────────────────────────────────────────
+  const [vatOrders, setVatOrders] = useState<any[]>([])
+  const [vatLoading, setVatLoading] = useState(false)
+  const [vatLoaded, setVatLoaded] = useState(false)
+  const [vatPeriod, setVatPeriod] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-Q${Math.ceil((now.getMonth() + 1) / 3)}`
+  })
+
+  // ── Pages state ───────────────────────────────────────────────────────────  const [pages, setPages] = useState<{slug: string; title: string; content: string}[]>([])
   const [activePage, setActivePage] = useState<string>('privacy')
   const [pageContent, setPageContent] = useState<string>('')
   const [pageTitle, setPageTitle] = useState<string>('')
@@ -158,7 +167,55 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     if (activeTab === 'settings') loadSiteSettings()
     if (activeTab === 'pages') loadPages()
     if (activeTab === 'admin_users') loadAdminUsers()
+    if (activeTab === 'vat_report') loadVatReport()
   }, [activeTab, loadPaymentSettings, loadAdminOrders])
+
+  const loadVatReport = useCallback(async () => {
+    setVatLoading(true)
+    // Parse quarter
+    const [year, q] = vatPeriod.split('-Q')
+    const qNum = parseInt(q)
+    const startMonth = (qNum - 1) * 3
+    const start = new Date(parseInt(year), startMonth, 1).toISOString()
+    const end = new Date(parseInt(year), startMonth + 3, 0, 23, 59, 59).toISOString()
+
+    const { data } = await supabase
+      .from('orders')
+      .select('*, vendors(business_name, vat_trn)')
+      .gte('created_at', start)
+      .lte('created_at', end)
+      .in('status', ['delivered', 'confirmed', 'processing', 'shipped'])
+      .order('created_at', { ascending: false })
+
+    setVatOrders(data ?? [])
+    setVatLoading(false)
+    setVatLoaded(true)
+  }, [vatPeriod, supabase])
+
+  const exportVatCSV = () => {
+    if (vatOrders.length === 0) return
+    const headers = ['Order #', 'Date', 'Vendor', 'Vendor TRN', 'Subtotal AED', 'VAT 5% AED', 'Total AED', 'Status']
+    const rows = vatOrders.map(o => [
+      o.order_number,
+      new Date(o.created_at).toLocaleDateString('en-AE'),
+      o.vendors?.business_name ?? '',
+      o.vendors?.vat_trn ?? '',
+      o.subtotal_aed?.toFixed(2),
+      o.vat_amount_aed?.toFixed(2),
+      o.total_aed?.toFixed(2),
+      o.status,
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `VAT-Report-${vatPeriod}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   const loadAdminUsers = useCallback(async () => {
     if (adminUsersLoaded) return
@@ -344,6 +401,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     { id: 'pending_vendors', icon: Clock, label: ta('pendingVendors'), badge: vendors.length },
     { id: 'all_vendors', icon: Store, label: ta('vendors') },
     { id: 'orders', icon: ShoppingBag, label: 'Orders' },
+    { id: 'vat_report', icon: Receipt, label: 'VAT Report', superOnly: true },
     { id: 'payment', icon: CreditCard, label: 'Payment', superOnly: true },
     { id: 'pages', icon: FileText, label: 'Pages', superOnly: true },
     { id: 'settings', icon: Settings, label: 'Site Settings', superOnly: true },
@@ -747,6 +805,114 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
               }
               {paymentSaved ? 'Settings Saved!' : 'Save Settings'}
             </button>
+          </div>
+        )}
+
+        {/* ── VAT Report ───────────────────────────────────────────────── */}
+        {activeTab === 'vat_report' && isSuperAdmin && (
+          <div className="space-y-5 max-w-4xl">
+            {/* Quarter selector */}
+            <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gold-50 flex items-center justify-center">
+                    <Receipt className="w-5 h-5 text-gold-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-midnight-900">VAT Report</p>
+                    <p className="text-xs text-midnight-400">UAE FTA Quarterly Report — 5% VAT</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={vatPeriod}
+                    onChange={e => { setVatPeriod(e.target.value); setVatLoaded(false) }}
+                    className="px-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50"
+                  >
+                    {['2026-Q1','2026-Q2','2026-Q3','2026-Q4','2025-Q4','2025-Q3'].map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                  <button onClick={loadVatReport}
+                    className="px-4 py-2 rounded-xl gold-gradient text-midnight-900 text-sm font-bold hover:opacity-90">
+                    Load
+                  </button>
+                  <button onClick={exportVatCSV} disabled={vatOrders.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-midnight-600 hover:bg-gray-50 disabled:opacity-40">
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary cards */}
+              {vatOrders.length > 0 && (
+                <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-gray-100">
+                  {[
+                    {
+                      label: 'Total Taxable Amount',
+                      value: formatAED(vatOrders.reduce((s, o) => s + (o.subtotal_aed || 0), 0)),
+                      color: 'text-blue-600 bg-blue-50'
+                    },
+                    {
+                      label: 'Total VAT Collected (5%)',
+                      value: formatAED(vatOrders.reduce((s, o) => s + (o.vat_amount_aed || 0), 0)),
+                      color: 'text-green-600 bg-green-50'
+                    },
+                    {
+                      label: 'Total Revenue incl. VAT',
+                      value: formatAED(vatOrders.reduce((s, o) => s + (o.total_aed || 0), 0)),
+                      color: 'text-gold-600 bg-gold-50'
+                    },
+                  ].map(card => (
+                    <div key={card.label} className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-xs text-midnight-400 mb-1">{card.label}</p>
+                      <p className={`text-xl font-heading font-bold ${card.color.split(' ')[0]}`}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Table */}
+            {vatLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : vatOrders.length > 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Order #</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Date</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">Vendor</th>
+                      <th className="text-start px-4 py-3 font-semibold text-midnight-600">TRN</th>
+                      <th className="text-end px-4 py-3 font-semibold text-midnight-600">Subtotal</th>
+                      <th className="text-end px-4 py-3 font-semibold text-midnight-600">VAT 5%</th>
+                      <th className="text-end px-4 py-3 font-semibold text-midnight-600">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {vatOrders.map((order: any) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-mono text-xs text-midnight-900">{order.order_number}</td>
+                        <td className="px-4 py-3 text-xs text-midnight-500">{formatDate(order.created_at)}</td>
+                        <td className="px-4 py-3 text-midnight-700">{order.vendors?.business_name ?? '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-midnight-500">{order.vendors?.vat_trn ?? '—'}</td>
+                        <td className="px-4 py-3 text-end text-midnight-700">{formatAED(order.subtotal_aed)}</td>
+                        <td className="px-4 py-3 text-end text-green-600 font-medium">{formatAED(order.vat_amount_aed)}</td>
+                        <td className="px-4 py-3 text-end font-semibold text-midnight-900">{formatAED(order.total_aed)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : vatLoaded ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center text-midnight-400">
+                No orders found for {vatPeriod}
+              </div>
+            ) : null}
           </div>
         )}
 
