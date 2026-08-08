@@ -50,7 +50,7 @@ export default function CheckoutPage() {
       setPaymentLoading(true)
       const supabase = createClient()
       const { data } = await supabase
-        .from('payment_settings')
+        .from('payment_settings_public')
         .select('gateway, is_enabled, is_sandbox')
         .eq('is_enabled', true)
 
