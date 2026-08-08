@@ -37,15 +37,15 @@ export default async function AdminPage({ params }: Props) {
     getAllVendors(),
   ])
 
-  // Use service client for stats — bypasses RLS
+  // Use service client for stats — bypasses RLS, no duplicates
   const [
     { count: totalUsers },
     { count: totalOrders },
     { count: totalProducts },
   ] = await Promise.all([
-    serviceClient.from('profiles').select('*', { count: 'exact', head: true }),
-    serviceClient.from('orders').select('*', { count: 'exact', head: true }),
-    serviceClient.from('spare_parts').select('*', { count: 'exact', head: true }),
+    serviceClient.from('profiles').select('id', { count: 'exact', head: true }),
+    serviceClient.from('orders').select('id', { count: 'exact', head: true }),
+    serviceClient.from('spare_parts').select('id', { count: 'exact', head: true }),
   ])
 
   return (
