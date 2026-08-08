@@ -1,17 +1,35 @@
-'use client'
-
-import { useTranslations, useLocale } from 'next-intl'
+import { getTranslations, getLocale } from 'next-intl/server'
 import Link from 'next/link'
 import { Mail, Phone, MapPin } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 
-export default function Footer() {
-  const t = useTranslations('nav')
-  const locale = useLocale()
+async function getSiteSettings() {
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase.from('site_settings').select('key, value')
+    if (!data) return null
+    const obj: Record<string, string> = {}
+    data.forEach((row: { key: string; value: string }) => { obj[row.key] = row.value })
+    return obj
+  } catch {
+    return null
+  }
+}
+
+export default async function Footer() {
+  const t = await getTranslations('nav')
+  const locale = await getLocale()
   const year = new Date().getFullYear()
+  const settings = await getSiteSettings()
+
+  const phone = settings?.phone || '+971 XX XXX XXXX'
+  const email = settings?.email || 'support@sgosouquae.com'
+  const address = settings?.address || 'Dubai, United Arab Emirates'
+  const platformName = settings?.platform_name || 'SGO-SouqUAE'
+  const tagline = settings?.tagline || "UAE's premium marketplace for genuine and aftermarket auto parts. Serving all 7 Emirates."
 
   return (
     <footer className="bg-midnight-900 text-midnight-300 border-t border-white/5">
-      {/* Gold line */}
       <div className="h-1 gold-gradient" />
 
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -24,30 +42,34 @@ export default function Footer() {
               </div>
               <div>
                 <span className="font-heading font-bold text-white text-lg">
-                  SGO<span className="gold-text">Souq</span>UAE
+                  {platformName.includes('SGO') ? (
+                    <>SGO<span className="gold-text">Souq</span>UAE</>
+                  ) : platformName}
                 </span>
               </div>
             </div>
-            <p className="text-sm leading-relaxed text-midnight-400">
-              UAE&apos;s premium marketplace for genuine and aftermarket auto parts. Serving all 7 Emirates.
-            </p>
+            <p className="text-sm leading-relaxed text-midnight-400">{tagline}</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
                 <MapPin className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                <span>Dubai, United Arab Emirates</span>
+                <span>{address}</span>
               </div>
-              <div className="flex items-center gap-2 text-xs">
-                <Phone className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                <span>+971 XX XXX XXXX</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <Mail className="w-3.5 h-3.5 text-gold-500 shrink-0" />
-                <span>support@sgosouquae.com</span>
-              </div>
+              {phone && phone !== '+971 XX XXX XXXX' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Phone className="w-3.5 h-3.5 text-gold-500 shrink-0" />
+                  <a href={`tel:${phone}`} className="hover:text-gold-400 transition-colors">{phone}</a>
+                </div>
+              )}
+              {email && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Mail className="w-3.5 h-3.5 text-gold-500 shrink-0" />
+                  <a href={`mailto:${email}`} className="hover:text-gold-400 transition-colors">{email}</a>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick links */}
+          {/* Marketplace */}
           <div>
             <h4 className="font-heading font-semibold text-white mb-4 text-sm uppercase tracking-wider">Marketplace</h4>
             <ul className="space-y-2">
@@ -113,7 +135,8 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-midnight-500">
-            © {year} SGO-SouqUAE. All rights reserved. Powered by <span className="text-gold-600">Pasar Digital</span>
+            © {year} SGO-SouqUAE. All rights reserved. Powered by{' '}
+            <span className="text-gold-600">Pasar Digital</span>
           </p>
           <div className="flex items-center gap-3">
             <span className="text-xs text-midnight-500">VAT compliant • Trade License verified</span>
