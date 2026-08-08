@@ -168,7 +168,14 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
       .select('id, full_name, admin_role, is_active, created_at')
       .eq('role', 'admin')
       .order('created_at', { ascending: true })
-    setAdminUsers(data ?? [])
+    // Deduplicate by id
+    const seen = new Set()
+    const unique = (data ?? []).filter((u: any) => {
+      if (seen.has(u.id)) return false
+      seen.add(u.id)
+      return true
+    })
+    setAdminUsers(unique)
     setAdminUsersLoading(false)
     setAdminUsersLoaded(true)
   }, [adminUsersLoaded, supabase])
