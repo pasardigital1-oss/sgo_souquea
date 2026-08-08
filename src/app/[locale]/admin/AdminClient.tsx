@@ -61,18 +61,26 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
 
   const isSuperAdmin = adminRole === 'super_admin'
 
+  const [vendorApiError, setVendorApiError] = useState<string | null>(null)
+
   // Fetch latest vendor data from API (uses service role, always fresh)
   const refreshVendors = useCallback(async () => {
     setVendorsLoading(true)
+    setVendorApiError(null)
     try {
       const res = await fetch('/api/admin/vendors')
+      const json = await res.json()
       if (res.ok) {
-        const json = await res.json()
         setVendors(json.pendingVendors ?? [])
         setVendorsList(json.allVendors ?? [])
+        setVendorApiError(null)
+      } else {
+        console.error('API error:', json)
+        setVendorApiError(`API Error ${res.status}: ${json.error || JSON.stringify(json)}`)
       }
     } catch (err) {
       console.error('Failed to refresh vendors', err)
+      setVendorApiError(`Network error: ${err}`)
     } finally {
       setVendorsLoading(false)
     }
@@ -505,6 +513,14 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
       {/* Main */}
       <main className="flex-1 overflow-auto p-6">
         <h1 className="font-heading text-2xl font-bold text-midnight-900 mb-6">{ta('title')}</h1>
+
+        {/* Debug: show API error if any */}
+        {vendorApiError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-xl text-sm text-red-700 font-mono break-all">
+            <strong>Vendor API Error:</strong> {vendorApiError}
+          </div>
+        )}
+
         {/* Overview */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
