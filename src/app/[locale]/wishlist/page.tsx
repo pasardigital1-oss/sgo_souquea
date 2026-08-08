@@ -38,7 +38,7 @@ export default function WishlistPage() {
       const partIds = wishlistData.map((w: any) => w.part_id)
 
       // Step 2: Fetch the actual products
-      const { data: partsData, error: partsError } = await supabase
+      const { data: partsData } = await supabase
         .from('spare_parts')
         .select(`
           *,
@@ -47,11 +47,6 @@ export default function WishlistPage() {
           inventory(id, price_aed, quantity, emirate, vendor_id)
         `)
         .in('id', partIds)
-        .eq('is_active', true)
-
-      console.log('[Wishlist] partIds:', partIds)
-      console.log('[Wishlist] partsData:', partsData)
-      console.log('[Wishlist] partsError:', partsError)
 
       setProducts(partsData ?? [])
       setLoading(false)

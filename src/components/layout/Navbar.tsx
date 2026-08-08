@@ -206,27 +206,16 @@ export default function Navbar() {
                       <ShoppingBag className="w-4 h-4 text-gold-500" />
                       {t('orders')}
                     </Link>
-                    {userRole === 'customer' && (
-                      <>
-                        <Link href={`/${locale}/profile/garage`} onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
-                          <span className="text-gold-500">🚗</span>
-                          My Garage
-                        </Link>
-                        <Link href={`/${locale}/wishlist`} onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
-                          <Heart className="w-4 h-4 text-red-400 fill-current" />
-                          Wishlist
-                        </Link>
-                      </>
-                    )}
-                    {userRole === 'admin' && (
-                      <Link href={`/${locale}/admin`} onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
-                        <Shield className="w-4 h-4 text-gold-500" />
-                        Admin Panel
-                      </Link>
-                    )}
+                    <Link href={`/${locale}/wishlist`} onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                      <Heart className="w-4 h-4 text-red-400 fill-current" />
+                      Wishlist
+                    </Link>
+                    <Link href={`/${locale}/profile/garage`} onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-midnight-700 hover:bg-gold-50 transition-colors">
+                      <span className="text-gold-500">🚗</span>
+                      My Garage
+                    </Link>
                     <button onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors border-t border-gray-50">
                       <LogOut className="w-4 h-4" />
