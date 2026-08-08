@@ -23,21 +23,33 @@ export default function WishlistPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push(`/${locale}/auth/login`); return }
 
-      const { data } = await supabase
+      // Step 1: Get wishlist part IDs
+      const { data: wishlistData } = await supabase
         .from('wishlists')
-        .select(`
-          part_id,
-          spare_parts(
-            *,
-            vendors(id, business_name, rating),
-            part_categories(id, name, name_ar, slug),
-            inventory(id, price_aed, quantity, emirate, vendor_id)
-          )
-        `)
+        .select('part_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      setProducts((data ?? []).map((w: any) => w.spare_parts).filter(Boolean))
+      if (!wishlistData || wishlistData.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const partIds = wishlistData.map((w: any) => w.part_id)
+
+      // Step 2: Fetch the actual products
+      const { data: partsData } = await supabase
+        .from('spare_parts')
+        .select(`
+          *,
+          vendors(id, business_name, rating),
+          part_categories(id, name, name_ar, slug),
+          inventory(id, price_aed, quantity, emirate, vendor_id)
+        `)
+        .in('id', partIds)
+        .eq('is_active', true)
+
+      setProducts(partsData ?? [])
       setLoading(false)
     }
     load()
