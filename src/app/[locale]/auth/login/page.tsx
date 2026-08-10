@@ -45,7 +45,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="flex flex-col items-center gap-1 mb-4">
-            <img src="/logo-sgo.png" alt="SGO-SouqUAE" width={80} height={80} className="rounded-2xl object-contain" />
+            <img src="/logo-sgo.png" alt="SGO-SouqUAE" width={80} height={80} className="rounded-2xl object-cover border-2 border-gray-200 shadow-md" />
             <span className="font-heading font-bold text-midnight-900 text-xl">SGO<span className="gold-text">Souq</span>UAE</span>
           </Link>
           <h1 className="font-heading text-2xl font-bold text-midnight-900">{t('loginTitle')}</h1>
