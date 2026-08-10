@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, ArrowRight, Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const EMIRATES = ['dubai', 'abu_dhabi', 'sharjah', 'ajman', 'rak', 'uaq', 'fujairah']
 
@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const te = useTranslations('emirates')
   const locale = useLocale()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [form, setForm] = useState({
@@ -29,6 +30,13 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+
+  // Auto-select vendor tab if ?type=vendor in URL
+  useEffect(() => {
+    if (searchParams.get('type') === 'vendor') {
+      setForm(prev => ({ ...prev, role: 'vendor' }))
+    }
+  }, [searchParams])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
