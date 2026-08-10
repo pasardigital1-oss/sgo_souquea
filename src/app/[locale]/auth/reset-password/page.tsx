@@ -66,9 +66,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
+            <img src="/logo-sgo.png" alt="SGO-SouqUAE" width={48} height={48} className="rounded-xl object-contain" />
             <span className="font-heading font-bold text-midnight-900 text-2xl">
               SGO<span className="gold-text">Souq</span>UAE
             </span>
