@@ -37,6 +37,8 @@ export interface Vendor {
   business_type: string | null
   emirate: Emirates | null
   address: string | null
+  bank_name: string | null
+  bank_iban: string | null
   commission_rate: number
   status: VendorStatus
   rating: number

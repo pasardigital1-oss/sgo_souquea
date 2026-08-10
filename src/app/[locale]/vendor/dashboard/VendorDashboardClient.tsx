@@ -21,7 +21,7 @@ interface Props {
   locale: string
 }
 
-type Tab = 'overview' | 'products' | 'orders' | 'reports'
+type Tab = 'overview' | 'products' | 'orders' | 'reports' | 'settings'
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -37,6 +37,53 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const router = useRouter()
   const supabase = createClient()
+
+  // Settings state
+  const [settingsForm, setSettingsForm] = useState({
+    business_name: vendor.business_name ?? '',
+    business_name_ar: vendor.business_name_ar ?? '',
+    address: vendor.address ?? '',
+    bank_name: vendor.bank_name ?? '',
+    bank_iban: vendor.bank_iban ?? '',
+    vat_trn: vendor.vat_trn ?? '',
+    phone: '',
+  })
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  const loadSettingsPhone = async () => {
+    if (settingsLoaded) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
+      if (profile?.phone) setSettingsForm(prev => ({ ...prev, phone: profile.phone ?? '' }))
+    }
+    setSettingsLoaded(true)
+  }
+
+  const handleSaveSettings = async () => {
+    setSettingsLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSettingsLoading(false); return }
+
+    await supabase.from('vendors').update({
+      business_name: settingsForm.business_name,
+      business_name_ar: settingsForm.business_name_ar || null,
+      address: settingsForm.address || null,
+      bank_name: settingsForm.bank_name || null,
+      bank_iban: settingsForm.bank_iban || null,
+      vat_trn: settingsForm.vat_trn || null,
+    }).eq('user_id', user.id)
+
+    if (settingsForm.phone) {
+      await supabase.from('profiles').update({ phone: settingsForm.phone }).eq('id', user.id)
+    }
+
+    setSettingsLoading(false)
+    setSettingsSaved(true)
+    setTimeout(() => setSettingsSaved(false), 3000)
+  }
 
   // Local orders state so we can update status without full page reload
   const [orderList, setOrderList] = useState<any[]>(orders as any[])
@@ -183,12 +230,16 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
               { id: 'products', icon: Package, label: tv('products') },
               { id: 'orders', icon: ShoppingBag, label: useTranslations('orders')('title') },
               { id: 'reports', icon: BarChart3, label: tv('reports') },
+              { id: 'settings', icon: Settings, label: 'Settings' },
             ] as const).map(item => {
               const Icon = item.icon
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as Tab)}
+                  onClick={() => {
+                    setActiveTab(item.id as Tab)
+                    if (item.id === 'settings') loadSettingsPhone()
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     activeTab === item.id
                       ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30'
@@ -604,6 +655,81 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
               </div>
             )
           })()}
+
+          {/* Settings tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6 max-w-2xl">
+              <div className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6">
+                <h2 className="font-heading font-semibold text-midnight-900 mb-5 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-gold-500" /> Business Profile
+                </h2>
+                <div className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Business Name (EN)</label>
+                      <input type="text" value={settingsForm.business_name}
+                        onChange={e => setSettingsForm(p => ({ ...p, business_name: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Business Name (AR)</label>
+                      <input type="text" dir="rtl" value={settingsForm.business_name_ar}
+                        onChange={e => setSettingsForm(p => ({ ...p, business_name_ar: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50 font-arabic" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Business Address</label>
+                    <textarea value={settingsForm.address} rows={2}
+                      onChange={e => setSettingsForm(p => ({ ...p, address: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50 resize-none" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">
+                      📱 Phone / WhatsApp / Botim <span className="text-gold-600 font-normal normal-case">(customers will contact you via this number)</span>
+                    </label>
+                    <input type="tel" value={settingsForm.phone} placeholder="+971 55 XXX XXXX"
+                      onChange={e => setSettingsForm(p => ({ ...p, phone: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                    <p className="text-xs text-midnight-400">This number is used for WhatsApp and Botim contact buttons on your product listings.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">VAT / TRN Number</label>
+                    <input type="text" value={settingsForm.vat_trn} placeholder="100XXXXXXXXX00003"
+                      onChange={e => setSettingsForm(p => ({ ...p, vat_trn: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:border-gold-400 bg-gray-50" />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Bank Name</label>
+                      <input type="text" value={settingsForm.bank_name} placeholder="Emirates NBD, FAB..."
+                        onChange={e => setSettingsForm(p => ({ ...p, bank_name: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gold-400 bg-gray-50" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">IBAN</label>
+                      <input type="text" value={settingsForm.bank_iban} placeholder="AE XXXXXXXXXXXXXXXXXXXXXXXXX"
+                        onChange={e => setSettingsForm(p => ({ ...p, bank_iban: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:border-gold-400 bg-gray-50" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={handleSaveSettings} disabled={settingsLoading}
+                className="flex items-center gap-2 px-8 py-3 rounded-xl gold-gradient text-midnight-900 font-bold text-sm hover:opacity-90 disabled:opacity-60">
+                {settingsLoading
+                  ? <span className="w-4 h-4 border-2 border-midnight-700/30 border-t-midnight-700 rounded-full animate-spin" />
+                  : <CheckCircle className="w-4 h-4" />
+                }
+                {settingsSaved ? 'Saved!' : 'Save Changes'}
+              </button>
+            </div>
+          )}
         </div>
       </main>
     </div>
