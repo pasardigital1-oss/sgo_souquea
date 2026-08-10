@@ -112,7 +112,7 @@ export async function getProductById(id: string) {
     .from('spare_parts')
     .select(`
       *,
-      vendors(id, business_name, business_name_ar, rating, emirate, address),
+      vendors(id, business_name, business_name_ar, rating, emirate, address, user_id),
       part_categories(id, name, name_ar, slug),
       inventory(id, price_aed, quantity, emirate, sku),
       part_compatibility(
@@ -126,6 +126,20 @@ export async function getProductById(id: string) {
     .single()
 
   if (error) return null
+
+  // Get vendor phone from profiles
+  if (data?.vendors?.user_id) {
+    const serviceClient = createServiceClient()
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('phone')
+      .eq('id', data.vendors.user_id)
+      .single()
+    if (profile?.phone) {
+      (data.vendors as any).phone = profile.phone
+    }
+  }
+
   return data
 }
 
