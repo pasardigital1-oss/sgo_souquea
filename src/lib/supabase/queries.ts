@@ -66,23 +66,9 @@ export async function getProducts(filters: CatalogFilters = {}) {
     }
   }
 
-  // Vehicle type filter — map to search keywords since spare_parts has no vehicle_type column
-  if ((filters as any).vehicle_type) {
-    const vehicleTypeKeywords: Record<string, string[]> = {
-      sedan: ['sedan', 'camry', 'corolla', 'civic', 'accord', 'altima', 'car'],
-      suv: ['land cruiser', 'patrol', 'prado', 'rav4', 'fortuner', 'explorer', 'tahoe', 'suv', '4wd'],
-      pickup: ['hilux', 'ranger', 'navara', 'dmax', 'pickup', 'f-150', 'tundra'],
-      van: ['hiace', 'sprinter', 'caravan', 'van', 'bus', 'transit'],
-      truck: ['truck', 'lorry', 'hino', 'isuzu truck', 'actros'],
-      heavy: ['excavator', 'bulldozer', 'forklift', 'crane', 'heavy equipment', 'caterpillar'],
-    }
-    const vt = (filters as any).vehicle_type as string
-    const keywords = vehicleTypeKeywords[vt]
-    if (keywords && keywords.length > 0 && !filters.q) {
-      const orConditions = keywords.map(k => `name.ilike.%${k}%`).join(',')
-      query = query.or(orConditions)
-    }
-  }
+  // Vehicle type filter — hanya UI visual untuk sekarang
+  // Data produk belum ditagging per vehicle type
+  // Filter akan aktif setelah vendor mengisi data kendaraan di produk mereka
 
   if (filters.min_price !== undefined || filters.max_price !== undefined) {
     let invQuery = supabase.from('inventory').select('part_id')
