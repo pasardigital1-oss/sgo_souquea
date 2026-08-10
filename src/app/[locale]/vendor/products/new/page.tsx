@@ -256,6 +256,7 @@ export default function VendorAddProductPage() {
         images: imageUrls,
         is_active: form.is_active,
         is_featured: form.is_featured,
+        vehicle_types: (form as any).vehicle_types ?? [],
       })
       .select('id')
       .single()
@@ -584,6 +585,52 @@ export default function VendorAddProductPage() {
                   ))}
                 </select>
               </div>
+            </div>
+          </section>
+
+          {/* Vehicle Compatibility */}
+          <section className="bg-white rounded-2xl border border-gray-100 luxury-shadow p-6 space-y-4">
+            <h2 className="font-heading font-semibold text-midnight-900 text-lg border-b border-gray-100 pb-3">
+              Vehicle Compatibility <span className="text-sm font-normal text-midnight-400">(select all that apply)</span>
+            </h2>
+            <p className="text-xs text-midnight-400">This helps customers find parts for their vehicle type.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { value: 'car', label: 'Car / Sedan', icon: '🚗' },
+                { value: 'suv', label: 'SUV / 4WD', icon: '🚙' },
+                { value: 'pickup', label: 'Pickup Truck', icon: '🛻' },
+                { value: 'van', label: 'Van / Bus', icon: '🚐' },
+                { value: 'truck', label: 'Truck', icon: '🚚' },
+                { value: 'heavy', label: 'Heavy Equipment', icon: '🚜' },
+              ].map(vt => {
+                const selected = (form as any).vehicle_types?.includes(vt.value)
+                return (
+                  <label
+                    key={vt.value}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      selected ? 'border-gold-400 bg-gold-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selected}
+                      onChange={() => {
+                        const current = (form as any).vehicle_types ?? []
+                        const updated = selected
+                          ? current.filter((v: string) => v !== vt.value)
+                          : [...current, vt.value]
+                        setForm(prev => ({ ...prev, vehicle_types: updated } as any))
+                      }}
+                    />
+                    <span className="text-xl">{vt.icon}</span>
+                    <span className={`text-sm font-medium ${selected ? 'text-gold-800' : 'text-midnight-700'}`}>
+                      {vt.label}
+                    </span>
+                    {selected && <span className="ms-auto text-gold-600 text-xs font-bold">✓</span>}
+                  </label>
+                )
+              })}
             </div>
           </section>
 

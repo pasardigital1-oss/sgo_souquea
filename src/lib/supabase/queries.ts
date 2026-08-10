@@ -66,9 +66,11 @@ export async function getProducts(filters: CatalogFilters = {}) {
     }
   }
 
-  // Vehicle type filter — hanya UI visual untuk sekarang
-  // Data produk belum ditagging per vehicle type
-  // Filter akan aktif setelah vendor mengisi data kendaraan di produk mereka
+  // Vehicle type filter — uses vehicle_types array column
+  if ((filters as any).vehicle_type && (filters as any).vehicle_type !== '') {
+    const vt = (filters as any).vehicle_type as string
+    query = query.contains('vehicle_types', [vt])
+  }
 
   if (filters.min_price !== undefined || filters.max_price !== undefined) {
     let invQuery = supabase.from('inventory').select('part_id')
