@@ -141,9 +141,11 @@ export default function Navbar() {
         <div className="flex items-center gap-4 h-16">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
+            <img
+              src="/Logo SGO_SouqUEA.png"
+              alt="SGO-SouqUAE"
+              className="w-9 h-9 rounded-lg object-contain"
+            />
             <div className="hidden sm:block">
               <span className="font-heading font-bold text-midnight-900 text-lg leading-none">
                 SGO<span className="gold-text">Souq</span>

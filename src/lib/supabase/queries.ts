@@ -66,6 +66,24 @@ export async function getProducts(filters: CatalogFilters = {}) {
     }
   }
 
+  // Vehicle type filter — map to search keywords since spare_parts has no vehicle_type column
+  if ((filters as any).vehicle_type) {
+    const vehicleTypeKeywords: Record<string, string> = {
+      sedan: 'sedan camry corolla civic accord',
+      suv: 'land cruiser patrol prado rav4 fortuner',
+      pickup: 'hilux ranger navara dmax pickup',
+      van: 'hiace sprinter van bus',
+      truck: 'truck lorry',
+      heavy: 'heavy equipment excavator bulldozer',
+    }
+    const vt = (filters as any).vehicle_type as string
+    const keyword = vehicleTypeKeywords[vt]
+    if (keyword && !filters.q) {
+      // Use ilike search on name since textSearch may not find these
+      query = query.ilike('name', `%${keyword.split(' ')[0]}%`)
+    }
+  }
+
   if (filters.min_price !== undefined || filters.max_price !== undefined) {
     let invQuery = supabase.from('inventory').select('part_id')
     if (filters.min_price !== undefined) invQuery = invQuery.gte('price_aed', filters.min_price)
