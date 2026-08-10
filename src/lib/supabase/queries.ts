@@ -27,7 +27,8 @@ export async function getProducts(filters: CatalogFilters = {}) {
 
   // Filters
   if (filters.q) {
-    query = query.textSearch('search_vector', filters.q, { type: 'websearch' })
+    // Use ilike for more flexible search — matches partial words
+    query = query.or(`name.ilike.%${filters.q}%,brand.ilike.%${filters.q}%,part_number.ilike.%${filters.q}%,oem_code.ilike.%${filters.q}%`)
   }
 
   if (filters.category) {
