@@ -72,6 +72,19 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     verification: {
       // google: 'your-google-site-verification', // add when available
     },
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: 'any' },
+        { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+        { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      ],
+      apple: [
+        { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      ],
+      other: [
+        { rel: 'mask-icon', url: '/icons/icon-512x512.png' },
+      ],
+    },
   }
 }
 
@@ -88,6 +101,10 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} dir={isRTL ? 'rtl' : 'ltr'} suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://kelfndholimoyeyqmckw.supabase.co" />
         <link rel="dns-prefetch" href="https://kelfndholimoyeyqmckw.supabase.co" />
       </head>
