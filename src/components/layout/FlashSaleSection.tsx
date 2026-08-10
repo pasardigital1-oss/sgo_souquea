@@ -25,7 +25,7 @@ export default function FlashSaleSection() {
         .gte('ends_at', new Date().toISOString())
         .lte('starts_at', new Date().toISOString())
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (!activeSale) { setLoading(false); return }
       setSale(activeSale)
