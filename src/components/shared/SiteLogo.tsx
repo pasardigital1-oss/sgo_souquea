@@ -42,13 +42,13 @@ export default function SiteLogo({
       .eq('key', 'logo_url')
       .single()
       .then(({ data }) => {
-        const url = data?.value ?? '/logo-sgo.png'
+        const url = data?.value ?? 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png'
         cachedLogoUrl = url
         setLogoUrl(url)
       })
   }, [])
 
-  const imgSrc = logoUrl ?? '/logo-sgo.png'
+  const imgSrc = logoUrl ?? 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png'
   const nameColor = textColor === 'light' ? 'text-white' : 'text-midnight-900'
 
   const content = (

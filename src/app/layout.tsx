@@ -41,14 +41,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/logo-sgo.png', sizes: '32x32', type: 'image/png' },
+      { url: 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png', sizes: '32x32', type: 'image/png' },
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/logo-sgo.png', sizes: '180x180', type: 'image/png' },
+      { url: 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png', sizes: '180x180', type: 'image/png' },
     ],
-    shortcut: '/logo-sgo.png',
+    shortcut: 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png',
   },
   other: {
     'mobile-web-app-capable': 'yes',

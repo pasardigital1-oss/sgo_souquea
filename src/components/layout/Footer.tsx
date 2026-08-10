@@ -55,7 +55,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <Link href={`/${locale}`} className="flex items-center gap-2">
-              <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
+              <img src="https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
               <span className="font-heading font-bold text-white text-lg">SGO<span className="gold-text">Souq</span>UAE</span>
             </Link>
             <p className="text-sm leading-relaxed text-midnight-400">{settings.tagline}</p>

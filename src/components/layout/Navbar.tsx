@@ -142,7 +142,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4 h-16">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center gap-2 shrink-0">
-            <img src="/logo-sgo.png" alt="SGO" width={44} height={44} className="rounded-xl object-cover border border-gray-200 shadow-sm" />
+            <img src="https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png" alt="SGO" width={44} height={44} className="rounded-xl object-cover border border-gray-200 shadow-sm" />
             <div className="hidden sm:block">
               <span className="font-heading font-bold text-midnight-900 text-lg leading-none">SGO<span className="gold-text">Souq</span></span>
               <span className="block text-midnight-400 text-[10px] leading-none tracking-widest uppercase">UAE</span>

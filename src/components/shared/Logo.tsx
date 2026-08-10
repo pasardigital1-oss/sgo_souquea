@@ -18,7 +18,7 @@ export default function Logo({ locale, size = 'md', showText = true, className =
   const content = (
     <span className={`flex items-center gap-2 ${className}`}>
       <img
-        src="/logo-sgo.png"
+        src="https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png"
         alt="SGO-SouqUAE"
         width={s.img}
         height={s.img}

@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="flex flex-col items-center gap-1 mb-4">
-            <img src="/logo-sgo.png" alt="SGO-SouqUAE" width={80} height={80} className="rounded-2xl object-cover border-2 border-gray-200 shadow-md" />
+            <img src="https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png" alt="SGO-SouqUAE" width={80} height={80} className="rounded-2xl object-cover border-2 border-gray-200 shadow-md" />
             <span className="font-heading font-bold text-midnight-900 text-2xl">
               SGO<span className="gold-text">Souq</span>UAE
             </span>

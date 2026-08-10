@@ -496,12 +496,12 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         <div className="p-5">
           <Link href={`/${locale}`} className="flex items-center gap-2 mb-6">
             <img
-              src={(siteSettings as any).logo_url || '/logo-sgo.png'}
+              src={(siteSettings as any).logo_url || 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png'}
               alt="SGO"
               width={32}
               height={32}
               className="rounded-lg object-contain shrink-0"
-              onError={(e) => { e.currentTarget.src = '/logo-sgo.png' }}
+              onError={(e) => { e.currentTarget.src = 'https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png' }}
             />
             <div>
               <span className="font-heading font-bold text-white text-sm block">SGO<span className="gold-text">Souq</span></span>

@@ -126,7 +126,7 @@ export default function VendorOnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="inline-flex items-center gap-2 mb-4">
-            <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain" />
+            <img src="https://kelfndholimoyeyqmckw.supabase.co/storage/v1/object/public/site-assets/logo/platform-logo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain" />
             <span className="font-heading font-bold text-midnight-900 text-xl">SGO<span className="gold-text">Souq</span>UAE</span>
           </Link>
           <h1 className="font-heading text-2xl font-bold text-midnight-900">Become a Vendor</h1>
