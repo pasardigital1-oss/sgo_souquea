@@ -36,7 +36,8 @@ export default async function CatalogPage({ params, searchParams }: Props) {
     part_type: sp.type as CatalogFilters['part_type'],
     sort: (sp.sort as CatalogFilters['sort']) || 'newest',
     page: sp.page ? parseInt(sp.page) : 1,
-  }
+    ...(sp.vehicle_type ? { vehicle_type: sp.vehicle_type } : {}),
+  } as any
 
   // Fetch in parallel
   const [{ data: products, count }, categories, makes] = await Promise.all([
