@@ -43,7 +43,7 @@ export default function ProductCard({ product, locale, flashDiscount, priority =
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      supabase.from('wishlists').select('id').eq('user_id', user.id).eq('part_id', product.id).single()
+      supabase.from('wishlists').select('id').eq('user_id', user.id).eq('part_id', product.id).maybeSingle()
         .then(({ data }) => setWishlisted(!!data))
     })
   }, [product.id])

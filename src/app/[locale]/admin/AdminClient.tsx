@@ -210,7 +210,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
 
   // Load logo_url on mount for sidebar display
   useEffect(() => {
-    supabase.from('site_settings').select('value').eq('key', 'logo_url').single()
+    supabase.from('site_settings').select('value').eq('key', 'logo_url').maybeSingle()
       .then(({ data }) => {
         if (data?.value) setSiteSettings(prev => ({ ...prev, logo_url: data.value } as any))
       })
