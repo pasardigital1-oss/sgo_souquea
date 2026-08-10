@@ -1,5 +1,7 @@
 'use client'
 
+import SiteLogo from '@/components/shared/SiteLogo'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
@@ -158,12 +160,11 @@ export default function VendorDashboardClient({ vendor, products, orders, locale
         <div className="h-1 gold-gradient" />
         <div className="p-5">
           <Link href={`/${locale}`} className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
+            <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
+            <div>
+              <span className="font-heading font-bold text-white text-sm block">SGO<span className="gold-text">Souq</span></span>
+              <span className="text-midnight-500 text-[10px] uppercase tracking-widest">Vendor Portal</span>
             </div>
-            <span className="font-heading font-bold text-white text-sm">
-              SGO<span className="gold-text">Souq</span>
-            </span>
           </Link>
 
           {/* Vendor info */}

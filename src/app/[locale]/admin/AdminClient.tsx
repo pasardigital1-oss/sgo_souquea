@@ -1,5 +1,7 @@
 'use client'
 
+import SiteLogo from '@/components/shared/SiteLogo'
+
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
@@ -484,9 +486,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         <div className="h-1 gold-gradient" />
         <div className="p-5">
           <Link href={`/${locale}`} className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
+            <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
             <div>
               <span className="font-heading font-bold text-white text-sm block">SGO<span className="gold-text">Souq</span></span>
               <span className="text-midnight-500 text-[10px] uppercase tracking-widest">Admin Panel</span>
@@ -1245,6 +1245,49 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                 <Globe className="w-5 h-5 text-gold-500" /> Platform Information
               </h2>
               <div className="space-y-4">
+
+                {/* Logo Upload */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Platform Logo</label>
+                  <div className="flex items-center gap-4">
+                    {(siteSettings as any).logo_url ? (
+                      <img src={(siteSettings as any).logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-contain border border-gray-200 bg-gray-50" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl gold-gradient flex items-center justify-center text-white font-bold text-lg">S</div>
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden"
+                        id="logo-upload-input"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const ext = file.name.split('.').pop()
+                          const path = `logo/platform-logo.${ext}`
+                          const { error: uploadError } = await supabase.storage
+                            .from('site-assets')
+                            .upload(path, file, { upsert: true })
+                          if (uploadError) { alert('Upload failed: ' + uploadError.message); return }
+                          const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(path)
+                          await supabase.from('site_settings').upsert({ key: 'logo_url', value: publicUrl }, { onConflict: 'key' })
+                          setSiteSettings(p => ({ ...p, logo_url: publicUrl } as any))
+                          // Reset cache in SiteLogo component
+                          window.location.reload()
+                        }}
+                      />
+                      <label
+                        htmlFor="logo-upload-input"
+                        className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-midnight-600 hover:bg-gray-50 transition-colors"
+                      >
+                        Upload Logo (PNG, JPG, SVG)
+                      </label>
+                      <p className="text-xs text-midnight-400 mt-1">Recommended: 500×500px square image. Logo will appear across all pages.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-midnight-600 uppercase tracking-wider">Platform Name</label>

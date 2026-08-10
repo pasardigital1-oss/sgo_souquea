@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Building2, FileText, CreditCard, ArrowRight, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import SiteLogo from '@/components/shared/SiteLogo'
 
 const EMIRATES = ['dubai','abu_dhabi','sharjah','ajman','rak','uaq','fujairah']
 const BUSINESS_TYPES = ['retailer','wholesaler','distributor','manufacturer']
@@ -125,15 +126,11 @@ export default function VendorOnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <Link href={`/${locale}`} className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
-            </div>
-            <span className="font-heading font-bold text-midnight-900 text-xl">
-              SGO<span className="gold-text">Souq</span>UAE
-            </span>
+            <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain" />
+            <span className="font-heading font-bold text-midnight-900 text-xl">SGO<span className="gold-text">Souq</span>UAE</span>
           </Link>
           <h1 className="font-heading text-2xl font-bold text-midnight-900">Become a Vendor</h1>
-          <p className="text-midnight-500 text-sm mt-1">Join UAE's premium auto parts marketplace</p>
+          <p className="text-midnight-500 text-sm mt-1">Join UAE&apos;s premium auto parts marketplace</p>
         </div>
 
         {/* Steps indicator */}

@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import { Mail, Phone, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import SiteLogo from '@/components/shared/SiteLogo'
 
 interface SiteSettings {
   phone: string
@@ -53,16 +54,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Brand */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
-              </div>
-              <div>
-                <span className="font-heading font-bold text-white text-lg">
-                  SGO<span className="gold-text">Souq</span>UAE
-                </span>
-              </div>
-            </div>
+            <Link href={`/${locale}`} className="flex items-center gap-2">
+              <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
+              <span className="font-heading font-bold text-white text-lg">SGO<span className="gold-text">Souq</span>UAE</span>
+            </Link>
             <p className="text-sm leading-relaxed text-midnight-400">{settings.tagline}</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">

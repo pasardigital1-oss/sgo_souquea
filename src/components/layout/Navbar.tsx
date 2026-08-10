@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
+import SiteLogo from '@/components/shared/SiteLogo'
 import { ShoppingCart, Search, User, Menu, X, ChevronDown, LayoutDashboard, ShoppingBag, LogOut, Shield, Heart } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -141,20 +142,10 @@ export default function Navbar() {
         <div className="flex items-center gap-4 h-16">
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center gap-2 shrink-0">
-            <img
-              src="/logo-sgo.png"
-              alt="SGO-SouqUAE"
-              width={36}
-              height={36}
-              className="rounded-lg object-contain"
-            />
+            <img src="/logo-sgo.png" alt="SGO" width={36} height={36} className="rounded-lg object-contain" />
             <div className="hidden sm:block">
-              <span className="font-heading font-bold text-midnight-900 text-lg leading-none">
-                SGO<span className="gold-text">Souq</span>
-              </span>
-              <span className="block text-midnight-400 text-[10px] leading-none tracking-widest uppercase">
-                UAE
-              </span>
+              <span className="font-heading font-bold text-midnight-900 text-lg leading-none">SGO<span className="gold-text">Souq</span></span>
+              <span className="block text-midnight-400 text-[10px] leading-none tracking-widest uppercase">UAE</span>
             </div>
           </Link>
 
