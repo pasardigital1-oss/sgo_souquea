@@ -157,6 +157,7 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     facebook: '',
     instagram: '',
     twitter: '',
+    logo_url: '',
   })
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
@@ -486,7 +487,14 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
         <div className="h-1 gold-gradient" />
         <div className="p-5">
           <Link href={`/${locale}`} className="flex items-center gap-2 mb-6">
-            <img src="/logo-sgo.png" alt="SGO" width={32} height={32} className="rounded-lg object-contain shrink-0" />
+            <img
+              src={(siteSettings as any).logo_url || '/logo-sgo.png'}
+              alt="SGO"
+              width={32}
+              height={32}
+              className="rounded-lg object-contain shrink-0"
+              onError={(e) => { e.currentTarget.src = '/logo-sgo.png' }}
+            />
             <div>
               <span className="font-heading font-bold text-white text-sm block">SGO<span className="gold-text">Souq</span></span>
               <span className="text-midnight-500 text-[10px] uppercase tracking-widest">Admin Panel</span>
@@ -1273,8 +1281,6 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
                           const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(path)
                           await supabase.from('site_settings').upsert({ key: 'logo_url', value: publicUrl }, { onConflict: 'key' })
                           setSiteSettings(p => ({ ...p, logo_url: publicUrl } as any))
-                          // Reset cache in SiteLogo component
-                          window.location.reload()
                         }}
                       />
                       <label
