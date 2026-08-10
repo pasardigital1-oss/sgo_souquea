@@ -208,6 +208,14 @@ export default function AdminClient({ locale, adminRole, currentUserEmail, pendi
     if (activeTab === 'vat_report') loadVatReport()
   }, [activeTab, loadPaymentSettings, loadAdminOrders])
 
+  // Load logo_url on mount for sidebar display
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'logo_url').single()
+      .then(({ data }) => {
+        if (data?.value) setSiteSettings(prev => ({ ...prev, logo_url: data.value } as any))
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadVatReport = useCallback(async () => {
     setVatLoading(true)
     // Parse quarter
